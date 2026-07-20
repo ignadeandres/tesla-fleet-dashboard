@@ -52,7 +52,11 @@ export function TripsPage() {
         </List>
       </Grid>
       <Grid item xs={12} md={8}>
-        {selected?.startLat != null && selected?.startLng != null && (
+        {!selected ? (
+          <Typography color="text.secondary">Select a trip to see its route.</Typography>
+        ) : selected.startLat == null || selected.startLng == null ? (
+          <Typography color="text.secondary">This trip has no recorded location data.</Typography>
+        ) : (
           // key={selected.id} forces a clean remount per trip — react-leaflet's
           // MapContainer only applies `center`/`zoom` on mount, so without this the
           // camera would stay put when switching between trips in different places.

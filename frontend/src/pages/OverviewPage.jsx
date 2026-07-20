@@ -59,10 +59,10 @@ export function OverviewPage() {
               <Stat label="Battery" value={snap.batteryLevel != null ? `${snap.batteryLevel}%` : "—"} />
             </Grid>
             <Grid item xs={6} sm={3}>
-              <Stat label="Range" value={snap.batteryRange != null ? `${Math.round(snap.batteryRange)} mi` : "—"} />
+              <Stat label="Range" value={snap.batteryRange != null ? `${Math.round(snap.batteryRange)} km` : "—"} />
             </Grid>
             <Grid item xs={6} sm={3}>
-              <Stat label="Odometer" value={snap.odometer != null ? `${Math.round(snap.odometer)} mi` : "—"} />
+              <Stat label="Odometer" value={snap.odometer != null ? `${Math.round(snap.odometer)} km` : "—"} />
             </Grid>
             <Grid item xs={6} sm={3}>
               <Stat label="Locked" value={snap.locked ? "Yes" : "No"} />
