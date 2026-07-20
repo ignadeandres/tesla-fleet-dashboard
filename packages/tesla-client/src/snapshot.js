@@ -1,3 +1,5 @@
+import { toKm } from "./units.js";
+
 // Shared by the worker's poller and the backend's manual-refresh mutation — both
 // persist a telemetry_snapshots row from the same raw Tesla vehicle_data response.
 export async function saveSnapshot(db, vehicleId, { state, ts, raw }) {
@@ -18,12 +20,12 @@ export async function saveSnapshot(db, vehicleId, { state, ts, raw }) {
       ts,
       state,
       chargeState.battery_level ?? null,
-      chargeState.battery_range ?? null,
-      driveState.speed ?? null,
+      toKm(chargeState.battery_range, d) ?? null,
+      toKm(driveState.speed, d) ?? null,
       driveState.latitude ?? null,
       driveState.longitude ?? null,
       driveState.heading ?? null,
-      vehicleState.odometer ?? null,
+      toKm(vehicleState.odometer, d) ?? null,
       vehicleState.car_version ?? null,
       vehicleState.locked ?? null,
       climateState.is_climate_on ?? null,
