@@ -1,0 +1,14 @@
+{
+  "name": "tesla-fleet-dashboard",
+  "version": "1.0.0",
+  "private": true,
+  "workspaces": [
+    "backend",
+    "worker",
+    "frontend",
+    "packages/*"
+  ],
+  "scripts": {
+    "seed:demo": "node scripts/seed-demo-data.js"
+  }
+}

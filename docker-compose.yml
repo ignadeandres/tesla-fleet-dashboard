@@ -1,0 +1,100 @@
+version: "3.9"
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${DB_USER}
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+      POSTGRES_DB: ${DB_NAME}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./backend/migrations:/docker-entrypoint-initdb.d
+    ports:
+      - "127.0.0.1:5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER} -d ${DB_NAME}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  backend:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgres://${DB_USER}:${DB_PASSWORD}@postgres:5432/${DB_NAME}
+      JWT_SECRET: ${JWT_SECRET}
+      TESLA_CLIENT_ID: ${TESLA_CLIENT_ID}
+      TESLA_CLIENT_SECRET: ${TESLA_CLIENT_SECRET}
+      TESLA_REDIRECT_URI: ${TESLA_REDIRECT_URI}
+      TESLA_API_BASE: https://fleet-api.prd.eu.vn.cloud.tesla.com
+      TESLA_AUTH_BASE: https://fleet-auth.prd.vn.cloud.tesla.com
+      DEMO_MODE_ENABLED: "true"
+      NODE_ENV: production
+    volumes:
+      - ./backend/keys:/app/backend/keys:ro
+    expose:
+      - "4000"
+
+  worker:
+    build:
+      context: .
+      dockerfile: worker/Dockerfile
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgres://${DB_USER}:${DB_PASSWORD}@postgres:5432/${DB_NAME}
+      TESLA_CLIENT_ID: ${TESLA_CLIENT_ID}
+      TESLA_CLIENT_SECRET: ${TESLA_CLIENT_SECRET}
+      TESLA_API_BASE: https://fleet-api.prd.eu.vn.cloud.tesla.com
+      TESLA_AUTH_BASE: https://fleet-auth.prd.vn.cloud.tesla.com
+      BATTERY_CAPACITY_KWH: "75"
+      NODE_ENV: production
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    depends_on:
+      - backend
+    environment:
+      VITE_GRAPHQL_URL: ${PUBLIC_GRAPHQL_URL}
+    expose:
+      - "80"
+
+  nginx:
+    image: nginx:alpine
+    restart: unless-stopped
+    depends_on:
+      - backend
+      - frontend
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx/conf.d:/etc/nginx/conf.d:ro
+      - ./backend/keys:/etc/nginx/tesla-keys:ro
+      - certbot-www:/var/www/certbot
+      - certbot-certs:/etc/letsencrypt
+
+  certbot:
+    image: certbot/certbot
+    volumes:
+      - certbot-www:/var/www/certbot
+      - certbot-certs:/etc/letsencrypt
+    entrypoint: >
+      sh -c "trap exit TERM; while :; do certbot renew --webroot -w /var/www/certbot; sleep 12h; done"
+
+volumes:
+  pgdata:
+  certbot-www:
+  certbot-certs:

@@ -1,0 +1,87 @@
+type User {
+  id: ID!
+  email: String!
+  vehicles: [Vehicle!]!
+}
+
+type Vehicle {
+  id: ID!
+  vin: String!
+  displayName: String
+  model: String
+  latestSnapshot: TelemetrySnapshot
+  trips(limit: Int, offset: Int): [Trip!]!
+  chargingSessions(limit: Int, offset: Int): [ChargingSession!]!
+  stateLog(from: DateTime, to: DateTime): [TelemetrySnapshot!]!
+}
+
+type TelemetrySnapshot {
+  ts: DateTime!
+  state: String
+  batteryLevel: Int
+  batteryRange: Float
+  speed: Float
+  lat: Float
+  lng: Float
+  heading: Int
+  odometer: Float
+  softwareVersion: String
+  locked: Boolean
+  climateOn: Boolean
+  insideTemp: Float
+  outsideTemp: Float
+  doorState: JSON
+  windowState: JSON
+  tirePressure: JSON
+}
+
+type Trip {
+  id: ID!
+  startTime: DateTime!
+  endTime: DateTime
+  distanceKm: Float
+  durationSeconds: Int
+  startLat: Float
+  startLng: Float
+  endLat: Float
+  endLng: Float
+  route: [TripPoint!]!
+}
+
+type TripPoint {
+  ts: DateTime!
+  lat: Float!
+  lng: Float!
+  speed: Float
+}
+
+type ChargingSession {
+  id: ID!
+  startTime: DateTime!
+  endTime: DateTime
+  startBatteryLevel: Int
+  endBatteryLevel: Int
+  energyAddedKwh: Float
+  lat: Float
+  lng: Float
+}
+
+type Query {
+  me: User
+  vehicle(id: ID!): Vehicle
+}
+
+type Mutation {
+  login(email: String!, password: String!): AuthPayload!
+  register(email: String!, password: String!): AuthPayload!
+  addVehicle(teslaVehicleId: String!): Vehicle!
+  refreshVehicle(id: ID!): TelemetrySnapshot!
+}
+
+type AuthPayload {
+  token: String!
+  user: User!
+}
+
+scalar DateTime
+scalar JSON
