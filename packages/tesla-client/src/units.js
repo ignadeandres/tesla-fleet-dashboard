@@ -1,12 +1,10 @@
 const MI_TO_KM = 1.609344;
 
-// Tesla's numeric distance/speed fields mirror whatever unit the car's own touchscreen
-// is set to (mi or km) — there's no fixed unit. This dashboard always stores/shows km,
-// independent of what the car's own display happens to be set to.
-export function isMilesUnit(raw) {
-  return (raw?.gui_settings?.gui_distance_units || "").toLowerCase().includes("mi");
-}
-
-export function toKm(value, raw) {
-  return value == null ? value : isMilesUnit(raw) ? value * MI_TO_KM : value;
+// Confirmed against a real vehicle: Tesla's API returns vehicle_state.odometer,
+// charge_state.battery_range, and drive_state.speed in miles/mph unconditionally —
+// gui_settings.gui_distance_units (which reflects the car's own dash display setting)
+// does NOT indicate the unit of these fields, despite what Tesla's own field naming
+// suggests. Always convert; don't gate on that flag.
+export function toKm(value) {
+  return value == null ? value : value * MI_TO_KM;
 }

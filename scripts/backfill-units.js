@@ -1,25 +1,18 @@
-// One-time fix for telemetry captured before the mi->km normalization landed (see
-// packages/tesla-client/src/units.js).
+// One-time fix for telemetry captured before the mi->km conversion was fixed (see
+// packages/tesla-client/src/units.js) — including everything written by the *first*,
+// broken version of this fix, which never actually converted anything because it
+// incorrectly gated on gui_settings.gui_distance_units (confirmed wrong against a real
+// vehicle: that flag does not indicate the unit of odometer/battery_range/speed).
 //
-// Tesla's raw API payload always reports the car's own display unit (e.g. "mi/hr")
-// regardless of whether *our* code has already converted a given row to km — so a row
-// already fixed by the new code and a row still needing conversion are indistinguishable
-// from their `raw` JSON alone. The only reliable signal is *when* the row was captured,
-// relative to when the fix was deployed. You MUST pass that cutoff explicitly:
+//   BACKFILL_BEFORE="2026-07-21T00:00:00Z" DATABASE_URL=... node scripts/backfill-units.js
 //
-//   BACKFILL_BEFORE="2026-07-20T22:00:00Z" DATABASE_URL=... node scripts/backfill-units.js
+// Only rows with ts < BACKFILL_BEFORE are converted, so anything the *now-fixed* live
+// code inserts after you restart the worker doesn't get double-converted. Use "right
+// now" as the cutoff — every row currently in the table needs this fix.
 //
-// Only rows with ts < BACKFILL_BEFORE are converted. Find your cutoff with:
-//   docker inspect -f '{{.State.StartedAt}}' $(docker compose ps -q backend)
-// (the moment the fixed backend last started) — or just eyeball the last "old-looking"
-// row's timestamp in the UI and use that.
-//
-// IMPORTANT: also stop the worker first (`docker compose stop worker`) so no new row can
-// be inserted while this runs, then restart it afterward.
-//
-// Run this exactly once. Unlike the trip-distance backfill below (safely re-runnable —
-// it skips trips that already have a distance), re-running the snapshot backfill with the
-// same cutoff WILL convert the same rows a second time and corrupt them again.
+// IMPORTANT: stop the worker first (`docker compose stop worker`), deploy the units.js
+// fix, run this once, then restart the worker. Run this exactly once — re-running with
+// the same cutoff WILL convert the same rows again and corrupt them.
 import pg from "pg";
 import { toKm } from "tesla-client";
 import { totalDistanceKm } from "../worker/src/handlers/trip.js";
@@ -28,21 +21,29 @@ const pool = new pg.Pool({ connectionString: process.env.DATABASE_URL });
 
 async function backfillSnapshots(cutoff) {
   const { rows } = await pool.query(
-    `SELECT id, odometer, battery_range, speed, raw FROM telemetry_snapshots
-     WHERE raw IS NOT NULL AND ts < $1`,
+    `SELECT id, odometer, battery_range, speed FROM telemetry_snapshots WHERE ts < $1`,
     [cutoff]
   );
   for (const row of rows) {
     await pool.query(
       `UPDATE telemetry_snapshots SET odometer = $1, battery_range = $2, speed = $3 WHERE id = $4`,
-      [toKm(row.odometer, row.raw), toKm(row.battery_range, row.raw), toKm(row.speed, row.raw), row.id]
+      [toKm(row.odometer), toKm(row.battery_range), toKm(row.speed), row.id]
     );
   }
   console.log(`telemetry_snapshots: converted ${rows.length} row(s) older than ${cutoff}`);
 }
 
+async function backfillTripPointSpeeds(cutoff) {
+  const { rows } = await pool.query(`SELECT id, speed FROM trip_points WHERE ts < $1`, [cutoff]);
+  for (const row of rows) {
+    await pool.query(`UPDATE trip_points SET speed = $1 WHERE id = $2`, [toKm(row.speed), row.id]);
+  }
+  console.log(`trip_points: converted ${rows.length} row(s) older than ${cutoff}`);
+}
+
 // distance_km didn't exist as a computed field before today, so every trip closed
 // before now has it NULL — backfill from the (unit-independent) lat/lng breadcrumbs.
+// Safe to re-run: skips trips that already have a distance.
 async function backfillTripDistances() {
   const { rows: trips } = await pool.query(
     `SELECT id FROM trips WHERE end_time IS NOT NULL AND distance_km IS NULL`
@@ -64,6 +65,7 @@ async function main() {
     process.exit(1);
   }
   await backfillSnapshots(cutoff);
+  await backfillTripPointSpeeds(cutoff);
   await backfillTripDistances();
   await pool.end();
 }
