@@ -26,7 +26,7 @@ export async function handleTripPoint(db, vehicleId, data) {
   const driveState = data.drive_state || {};
   const lat = driveState.latitude;
   const lng = driveState.longitude;
-  const speed = toKm(driveState.speed, data);
+  const speed = toKm(driveState.speed);
   const ts = new Date();
 
   let trip = openTrips.get(vehicleId);

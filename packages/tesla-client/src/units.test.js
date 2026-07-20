@@ -1,18 +1,13 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { toKm, isMilesUnit } from "./units.js";
+import { toKm } from "./units.js";
 
-test("isMilesUnit detects mi/hr and is case-insensitive", () => {
-  assert.equal(isMilesUnit({ gui_settings: { gui_distance_units: "mi/hr" } }), true);
-  assert.equal(isMilesUnit({ gui_settings: { gui_distance_units: "MI/HR" } }), true);
-  assert.equal(isMilesUnit({ gui_settings: { gui_distance_units: "km/hr" } }), false);
-  assert.equal(isMilesUnit({}), false);
+test("toKm always converts mi->km (confirmed against a real vehicle's odometer)", () => {
+  // 21230.153791 stored (raw, unconverted) vs. 34167 actual km on the car's own dash.
+  assert.ok(Math.abs(toKm(21230.153791) - 34167) < 1, `expected ~34167, got ${toKm(21230.153791)}`);
 });
 
-test("toKm converts only when the car is set to miles, and passes nulls through", () => {
-  const milesRaw = { gui_settings: { gui_distance_units: "mi/hr" } };
-  const kmRaw = { gui_settings: { gui_distance_units: "km/hr" } };
-  assert.ok(Math.abs(toKm(100, milesRaw) - 160.9344) < 1e-9);
-  assert.equal(toKm(100, kmRaw), 100);
-  assert.equal(toKm(null, milesRaw), null);
+test("toKm passes null/undefined through unchanged", () => {
+  assert.equal(toKm(null), null);
+  assert.equal(toKm(undefined), undefined);
 });
