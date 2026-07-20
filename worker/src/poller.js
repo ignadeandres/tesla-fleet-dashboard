@@ -13,7 +13,11 @@ const teslaConfig = {
 const tesla = createTeslaClient(db, teslaConfig);
 
 async function tick() {
-  const { rows: vehicles } = await db.query(`SELECT id, tesla_vehicle_id FROM vehicles`);
+  // Only vehicles with stored credentials — skips e.g. the seeded demo vehicle
+  const { rows: vehicles } = await db.query(
+    `SELECT v.id, v.tesla_vehicle_id FROM vehicles v
+     INNER JOIN vehicle_tokens t ON t.vehicle_id = v.id`
+  );
   for (const vehicle of vehicles) {
     try {
       await runStateMachine(db, tesla, vehicle);

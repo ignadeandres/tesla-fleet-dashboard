@@ -1,2 +1,3 @@
-export { createTeslaClient } from "./client.js";
-export { ensureFreshToken } from "./oauth.js";
+export { createTeslaClient, fetchTeslaVehicles } from "./client.js";
+export { ensureFreshToken, exchangeAuthCode } from "./oauth.js";
+export { saveSnapshot } from "./snapshot.js";

@@ -1,6 +1,7 @@
 type User {
   id: ID!
   email: String!
+  isDemo: Boolean!
   vehicles: [Vehicle!]!
 }
 
@@ -11,6 +12,9 @@ type Vehicle {
   model: String
   latestSnapshot: TelemetrySnapshot
   trips(limit: Int, offset: Int): [Trip!]!
+  # Scoped lookup for one trip's full GPS route — kept off the list query above so
+  # listing trips doesn't fetch every trip's breadcrumb data up front.
+  trip(id: ID!): Trip
   chargingSessions(limit: Int, offset: Int): [ChargingSession!]!
   stateLog(from: DateTime, to: DateTime): [TelemetrySnapshot!]!
 }
@@ -74,9 +78,12 @@ type Query {
 type Mutation {
   login(email: String!, password: String!): AuthPayload!
   register(email: String!, password: String!): AuthPayload!
-  addVehicle(teslaVehicleId: String!): Vehicle!
+  logout: Boolean!
   refreshVehicle(id: ID!): TelemetrySnapshot!
 }
+
+# Vehicle linking is handled by the /auth/tesla/login + /auth/tesla/callback
+# HTTP routes (Tesla's OAuth redirect can't target a GraphQL mutation), not a mutation.
 
 type AuthPayload {
   token: String!
