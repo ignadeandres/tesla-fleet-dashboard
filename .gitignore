@@ -1,0 +1,7 @@
+.env
+backend/keys/*.pem
+backend/keys/*.key
+node_modules/
+dist/
+build/
+*.log
