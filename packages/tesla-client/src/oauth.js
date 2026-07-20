@@ -1,3 +1,26 @@
+// One-time exchange of an OAuth authorization code for a token pair — used by the
+// /auth/tesla/callback route, before any vehicle row (and thus vehicle_tokens row) exists.
+export async function exchangeAuthCode(code, teslaConfig) {
+  const resp = await fetch(`${teslaConfig.authBase}/oauth2/v3/token`, {
+    method: "POST",
+    headers: { "Content-Type": "application/x-www-form-urlencoded" },
+    body: new URLSearchParams({
+      grant_type: "authorization_code",
+      client_id: teslaConfig.clientId,
+      client_secret: teslaConfig.clientSecret,
+      code,
+      redirect_uri: teslaConfig.redirectUri,
+    }),
+  });
+  if (!resp.ok) throw new Error(`Auth code exchange failed: ${resp.status}`);
+  const data = await resp.json();
+  return {
+    accessToken: data.access_token,
+    refreshToken: data.refresh_token,
+    expiresAt: new Date(Date.now() + data.expires_in * 1000),
+  };
+}
+
 export async function ensureFreshToken(db, vehicleId, teslaConfig) {
   const { rows } = await db.query(
     `SELECT access_token, refresh_token, expires_at FROM vehicle_tokens WHERE vehicle_id = $1`,
@@ -27,9 +50,13 @@ export async function ensureFreshToken(db, vehicleId, teslaConfig) {
   const data = await resp.json();
 
   const newExpiresAt = new Date(Date.now() + data.expires_in * 1000);
+  // Tesla issues one refresh token per *account*, not per vehicle, and rotates it on
+  // every use — so every vehicle row still holding the token we just spent needs the
+  // new one, not just the vehicle that happened to trigger this refresh. Matching on
+  // the old refresh_token (rather than vehicle_id) is what keeps sibling vehicles alive.
   await db.query(
-    `UPDATE vehicle_tokens SET access_token = $1, refresh_token = $2, expires_at = $3 WHERE vehicle_id = $4`,
-    [data.access_token, data.refresh_token, newExpiresAt, vehicleId]
+    `UPDATE vehicle_tokens SET access_token = $1, refresh_token = $2, expires_at = $3 WHERE refresh_token = $4`,
+    [data.access_token, data.refresh_token, newExpiresAt, token.refresh_token]
   );
 
   return data.access_token;

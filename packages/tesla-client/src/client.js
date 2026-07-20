@@ -22,7 +22,22 @@ export function createTeslaClient(db, teslaConfig) {
     getVehicleLite(vehicleId, teslaVehicleId) {
       return client.call(vehicleId, `/api/1/vehicles/${teslaVehicleId}`);
     },
+
+    wakeVehicle(vehicleId, teslaVehicleId) {
+      return client.call(vehicleId, `/api/1/vehicles/${teslaVehicleId}/wake_up`, { method: "POST" });
+    },
   };
 
   return client;
+}
+
+// Used only right after exchangeAuthCode, before any vehicle row exists in the DB —
+// lists the Tesla account's vehicles with a raw (not-yet-persisted) access token.
+export async function fetchTeslaVehicles(accessToken, teslaConfig) {
+  const resp = await fetch(`${teslaConfig.apiBase}/api/1/vehicles`, {
+    headers: { Authorization: `Bearer ${accessToken}` },
+  });
+  if (!resp.ok) throw new Error(`Fetch vehicles failed: ${resp.status}`);
+  const data = await resp.json();
+  return data.response;
 }

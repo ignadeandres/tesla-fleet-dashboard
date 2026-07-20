@@ -96,8 +96,15 @@ Private/public web platform to monitor Tesla vehicle(s) via the **Tesla Fleet AP
 - Security: secrets never committed; demo data seed script provided for public/local use.
 - Portfolio quality: clean commit history, README with architecture diagram, MIT license.
 
-## 10. Open Items for Next Iteration
-- Repo name confirmation (proposed: `tesla-fleet-dashboard`).
-- GraphQL schema draft.
-- Postgres schema/migration draft.
-- Worker polling state-machine detail (asleep/driving/charging thresholds).
+## 10. Open Items — resolved for v1
+- Repo name: `tesla-fleet-dashboard`.
+- GraphQL schema: `backend/src/graphql/schema.graphql`.
+- Postgres schema/migrations: `backend/migrations/001_init.sql` … `004_charging.sql`.
+- Worker polling state-machine thresholds (`worker/src/stateMachine.js`): 60 min while
+  asleep, 15 min idle, 1 min driving, 5 min charging.
+- Vehicle linking: full self-service Tesla OAuth flow (`GET /auth/tesla/login` →
+  Tesla consent → `GET /auth/tesla/callback`), not a manual per-vehicle script. The
+  backend auto-inserts the linked vehicle(s) + tokens for the authenticated user.
+- No vehicle-command signing ships in v1 — only `vehicle_device_data` +
+  `vehicle_location` scopes are requested (see `docs/setup-tesla-api.md`), and the
+  manual "Refresh Now" action only needs the unsigned `wake_up` endpoint.
