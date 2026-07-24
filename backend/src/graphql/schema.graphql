@@ -51,6 +51,9 @@ type Trip {
   endLng: Float
   startBatteryLevel: Int
   endBatteryLevel: Int
+  # distanceKm / battery % consumed. Null when battery level wasn't captured or net
+  # usage isn't positive (e.g. regen/charging offset the trip's own consumption).
+  efficiencyKmPerPercent: Float
   route: [TripPoint!]!
 }
 

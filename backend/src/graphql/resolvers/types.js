@@ -21,6 +21,14 @@ export const Vehicle = {
   stateLog: (vehicle, { from, to }, ctx) => getStateLog(ctx.db, vehicle.id, from, to),
 };
 
+export function efficiencyKmPerPercent({ distanceKm, startBatteryLevel, endBatteryLevel }) {
+  if (distanceKm == null || startBatteryLevel == null || endBatteryLevel == null) return null;
+  const used = startBatteryLevel - endBatteryLevel;
+  if (used <= 0) return null;
+  return distanceKm / used;
+}
+
 export const Trip = {
   route: (trip, _, ctx) => getTripPoints(ctx.db, trip.id),
+  efficiencyKmPerPercent,
 };

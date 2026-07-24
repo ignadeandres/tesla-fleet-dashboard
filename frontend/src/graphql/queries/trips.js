@@ -15,6 +15,7 @@ export const VEHICLE_TRIPS_QUERY = gql`
         endLng
         startBatteryLevel
         endBatteryLevel
+        efficiencyKmPerPercent
       }
     }
   }
