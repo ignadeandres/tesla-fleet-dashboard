@@ -24,6 +24,7 @@ export function totalDistanceKm(points) {
 
 export async function handleTripPoint(db, vehicleId, data) {
   const driveState = data.drive_state || {};
+  const chargeState = data.charge_state || {};
   const lat = driveState.latitude;
   const lng = driveState.longitude;
   const speed = toKm(driveState.speed);
@@ -32,9 +33,9 @@ export async function handleTripPoint(db, vehicleId, data) {
   let trip = openTrips.get(vehicleId);
   if (!trip) {
     const { rows } = await db.query(
-      `INSERT INTO trips (vehicle_id, start_time, start_lat, start_lng)
-       VALUES ($1, $2, $3, $4) RETURNING id`,
-      [vehicleId, ts, lat, lng]
+      `INSERT INTO trips (vehicle_id, start_time, start_lat, start_lng, start_battery_level)
+       VALUES ($1, $2, $3, $4, $5) RETURNING id`,
+      [vehicleId, ts, lat, lng, chargeState.battery_level ?? null]
     );
     trip = { id: rows[0].id, startTime: ts };
     openTrips.set(vehicleId, trip);
@@ -59,11 +60,14 @@ export async function closeTripIfOpen(db, vehicleId, data) {
     [trip.id]
   );
   const distanceKm = totalDistanceKm(rows);
+  const chargeState = data.charge_state || {};
 
   await db.query(
-    `UPDATE trips SET end_time = $1, end_lat = $2, end_lng = $3, duration_seconds = $4, distance_km = $5
-     WHERE id = $6`,
-    [endTime, driveState.latitude, driveState.longitude, durationSeconds, distanceKm, trip.id]
+    `UPDATE trips SET end_time = $1, end_lat = $2, end_lng = $3, duration_seconds = $4,
+     distance_km = $5, end_battery_level = $6
+     WHERE id = $7`,
+    [endTime, driveState.latitude, driveState.longitude, durationSeconds, distanceKm,
+     chargeState.battery_level ?? null, trip.id]
   );
 
   openTrips.delete(vehicleId);

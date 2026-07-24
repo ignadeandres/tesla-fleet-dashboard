@@ -20,6 +20,11 @@ function formatDuration(seconds) {
   return mins < 60 ? `${mins} min` : `${Math.floor(mins / 60)}h ${mins % 60}m`;
 }
 
+function formatDischarge(startLevel, endLevel) {
+  if (startLevel == null || endLevel == null) return null;
+  return `${startLevel - endLevel}% used`;
+}
+
 export function TripsPage() {
   const { vehicleId } = useParams();
   const { data, loading } = useQuery(VEHICLE_TRIPS_QUERY, { variables: { id: vehicleId, limit: 30 } });
@@ -44,7 +49,13 @@ export function TripsPage() {
             <ListItemButton key={t.id} selected={t.id === selected?.id} onClick={() => setSelectedId(t.id)}>
               <ListItemText
                 primary={new Date(t.startTime).toLocaleString()}
-                secondary={`${t.distanceKm ? t.distanceKm.toFixed(1) + " km" : "—"} · ${formatDuration(t.durationSeconds)}`}
+                secondary={[
+                  t.distanceKm ? t.distanceKm.toFixed(1) + " km" : "—",
+                  formatDuration(t.durationSeconds),
+                  formatDischarge(t.startBatteryLevel, t.endBatteryLevel),
+                ]
+                  .filter(Boolean)
+                  .join(" · ")}
               />
             </ListItemButton>
           ))}

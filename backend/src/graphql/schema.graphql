@@ -49,6 +49,8 @@ type Trip {
   startLng: Float
   endLat: Float
   endLng: Float
+  startBatteryLevel: Int
+  endBatteryLevel: Int
   route: [TripPoint!]!
 }
 

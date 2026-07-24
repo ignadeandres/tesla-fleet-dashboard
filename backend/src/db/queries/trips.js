@@ -2,7 +2,8 @@ const SELECT_FIELDS = `
   id, start_time AS "startTime", end_time AS "endTime",
   distance_km AS "distanceKm", duration_seconds AS "durationSeconds",
   start_lat AS "startLat", start_lng AS "startLng",
-  end_lat AS "endLat", end_lng AS "endLng"
+  end_lat AS "endLat", end_lng AS "endLng",
+  start_battery_level AS "startBatteryLevel", end_battery_level AS "endBatteryLevel"
 `;
 
 export async function getTripsByVehicle(db, vehicleId, limit = 50, offset = 0) {

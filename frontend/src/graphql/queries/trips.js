@@ -13,6 +13,8 @@ export const VEHICLE_TRIPS_QUERY = gql`
         startLng
         endLat
         endLng
+        startBatteryLevel
+        endBatteryLevel
       }
     }
   }
