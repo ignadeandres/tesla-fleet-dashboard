@@ -16,7 +16,13 @@ export function createTeslaClient(db, teslaConfig) {
     },
 
     getVehicleState(vehicleId, teslaVehicleId) {
-      return client.call(vehicleId, `/api/1/vehicles/${teslaVehicleId}/vehicle_data`);
+      // Tesla excludes location_data from vehicle_data by default (privacy gate) —
+      // must be requested explicitly or drive_state.latitude/longitude come back empty.
+      const endpoints = "charge_state;climate_state;drive_state;vehicle_state;location_data";
+      return client.call(
+        vehicleId,
+        `/api/1/vehicles/${teslaVehicleId}/vehicle_data?endpoints=${endpoints}`
+      );
     },
 
     getVehicleLite(vehicleId, teslaVehicleId) {
