@@ -22,7 +22,7 @@ export function Layout() {
   return (
     <Box>
       <AppBar position="static" color="transparent" sx={{ borderBottom: 1, borderColor: "divider" }}>
-        <Toolbar sx={{ gap: 2 }}>
+        <Toolbar sx={{ gap: 2, flexWrap: "wrap", py: 1 }}>
           <Typography variant="h6" sx={{ flexGrow: 0 }}>
             Tesla Fleet Dashboard
           </Typography>
@@ -39,7 +39,7 @@ export function Layout() {
           </Button>
         </Toolbar>
         {vehicleId && (
-          <Tabs value={section} sx={{ px: 2 }}>
+          <Tabs value={section} variant="scrollable" scrollButtons="auto" allowScrollButtonsMobile sx={{ px: 2 }}>
             {SECTIONS.map(([key, label]) => (
               <Tab
                 key={key}
