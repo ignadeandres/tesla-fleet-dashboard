@@ -13,7 +13,19 @@ export async function getLatestSnapshot(db, vehicleId) {
      WHERE vehicle_id = $1 ORDER BY ts DESC LIMIT 1`,
     [vehicleId]
   );
-  return rows[0] || null;
+  const latest = rows[0];
+  if (!latest || latest.odometer != null) return latest || null;
+
+  // Bare state-transition rows (e.g. going asleep) carry no telemetry — fall back
+  // to the most recent row that actually had a reading, keeping the fresher state/ts
+  // so the UI still shows "Asleep" rather than a stale status.
+  const { rows: fallbackRows } = await db.query(
+    `SELECT ${SELECT_FIELDS} FROM telemetry_snapshots
+     WHERE vehicle_id = $1 AND odometer IS NOT NULL ORDER BY ts DESC LIMIT 1`,
+    [vehicleId]
+  );
+  const fallback = fallbackRows[0];
+  return fallback ? { ...fallback, state: latest.state, ts: latest.ts } : latest;
 }
 
 // Capped even with no from/to — worker polls as often as every 60s while driving and
