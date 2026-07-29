@@ -2,15 +2,16 @@ import { saveSnapshot } from "./handlers/snapshot.js";
 import { handleTripPoint, closeTripIfOpen } from "./handlers/trip.js";
 import { handleChargingUpdate, closeChargingSessionIfOpen } from "./handlers/charging.js";
 
-// Per-vehicle last-full-poll bookkeeping (in-memory; resets on worker restart, acceptable for v1)
+// Per-vehicle last-poll bookkeeping (in-memory; resets on worker restart, acceptable for v1)
 const lastPollAt = new Map();
 
-// Only throttles the expensive, vehicle-data full poll. The lite check below is
-// cheap and non-waking, so it always runs every tick regardless of these — that's
-// what catches a sleep -> awake transition promptly instead of missing it for up
-// to an hour (a full "asleep" gate used to also gate the lite check itself, so a
-// short drive starting from "asleep" could complete before the worker ever looked).
+// Every branch below costs a billed Fleet API call (even the "lite" one), so a single
+// gate covers both the lite and full poll. asleep is intentionally short (not the old
+// 60-minute gate) so a short drive starting from "asleep" is still caught reasonably
+// fast, but no longer unthrottled — that unthrottled version is what blew past Tesla's
+// Fleet API billing limit (up to 1,440 calls/day/vehicle just for the lite check).
 const INTERVALS_MS = {
+  asleep: 10 * 60 * 1000,
   idle: 15 * 60 * 1000,
   driving: 60 * 1000,
   charging: 5 * 60 * 1000,
@@ -25,7 +26,12 @@ export async function runStateMachine(db, tesla, vehicle) {
   );
   const knownState = rows[0]?.state || "idle";
 
-  // Lightweight, non-waking check every tick.
+  const last = lastPollAt.get(vehicle.id) || 0;
+  const interval = INTERVALS_MS[knownState] || INTERVALS_MS.idle;
+  if (now - last < interval) return; // not due yet
+  lastPollAt.set(vehicle.id, now);
+
+  // Lightweight, non-waking check first — avoids waking the car with a full poll.
   const lite = await tesla.getVehicleLite(vehicle.id, vehicle.tesla_vehicle_id);
   if (lite.response?.state === "asleep") {
     // Only record the transition once — not on every tick it stays asleep, which
@@ -33,13 +39,6 @@ export async function runStateMachine(db, tesla, vehicle) {
     if (knownState !== "asleep") await saveSnapshot(db, vehicle.id, { state: "asleep", ts: new Date() });
     return;
   }
-
-  // Awake. Throttle the expensive full poll to the state-based interval — except
-  // right after waking (knownState still "asleep"), where we don't yet know the
-  // real state and should check now rather than wait out a stale interval.
-  const last = lastPollAt.get(vehicle.id) || 0;
-  const interval = knownState === "asleep" ? 0 : INTERVALS_MS[knownState] || INTERVALS_MS.idle;
-  if (now - last < interval) return; // not due yet
 
   // Full poll (safe: vehicle already awake)
   const full = await tesla.getVehicleState(vehicle.id, vehicle.tesla_vehicle_id);
@@ -61,6 +60,4 @@ export async function runStateMachine(db, tesla, vehicle) {
   } else {
     await closeChargingSessionIfOpen(db, vehicle.id, data);
   }
-
-  lastPollAt.set(vehicle.id, now);
 }

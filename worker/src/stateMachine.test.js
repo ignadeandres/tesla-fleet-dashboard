@@ -17,7 +17,7 @@ function makeFakeDb(knownState) {
   };
 }
 
-test("a vehicle last recorded asleep polls immediately once it's actually awake, instead of waiting out the stale asleep interval", async () => {
+test("a vehicle last recorded asleep polls on the very first tick, instead of waiting out a stale interval", async () => {
   const db = makeFakeDb("asleep");
   const tesla = {
     getVehicleLite: async () => ({ response: { state: "online" } }),
@@ -31,7 +31,7 @@ test("a vehicle last recorded asleep polls immediately once it's actually awake,
   await runStateMachine(db, tesla, { id: "veh-wake", tesla_vehicle_id: "t1" });
   assert.ok(
     db.calls.some((sql) => sql.includes("INSERT INTO trips")),
-    "expected a trip to start on the very first poll after waking, not deferred by the old 60-minute asleep gate"
+    "expected a trip to start on the first poll for a never-before-seen vehicle"
   );
 });
 
@@ -50,7 +50,7 @@ test("a vehicle that's still asleep only records the transition once, not on eve
   );
 });
 
-test("an idle-awake vehicle still throttles repeated full polls to the idle interval", async () => {
+test("an idle-awake vehicle throttles repeated polls (lite and full) to the idle interval", async () => {
   const db = makeFakeDb("idle");
   let liteCalls = 0;
   let fullPollCalls = 0;
@@ -67,6 +67,6 @@ test("an idle-awake vehicle still throttles repeated full polls to the idle inte
   const vehicle = { id: "veh-idle-throttle", tesla_vehicle_id: "t1" };
   await runStateMachine(db, tesla, vehicle);
   await runStateMachine(db, tesla, vehicle);
-  assert.equal(liteCalls, 2, "the cheap lite check should run every tick regardless of throttling");
+  assert.equal(liteCalls, 1, "the second tick is within the idle interval — no API call at all, not even the lite one");
   assert.equal(fullPollCalls, 1, "the expensive full poll should be throttled on the second tick");
 });
