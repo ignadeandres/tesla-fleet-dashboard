@@ -56,6 +56,7 @@ services:
       TESLA_CLIENT_SECRET: ${TESLA_CLIENT_SECRET}
       TESLA_API_BASE: https://fleet-api.prd.eu.vn.cloud.tesla.com
       TESLA_AUTH_BASE: https://fleet-auth.prd.vn.cloud.tesla.com
+      TESLA_MAX_CALLS_PER_DAY: ${TESLA_MAX_CALLS_PER_DAY:-300}
       BATTERY_CAPACITY_KWH: "75"
       NODE_ENV: production
 

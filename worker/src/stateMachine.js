@@ -1,6 +1,7 @@
 import { saveSnapshot } from "./handlers/snapshot.js";
 import { handleTripPoint, closeTripIfOpen } from "./handlers/trip.js";
 import { handleChargingUpdate, closeChargingSessionIfOpen } from "./handlers/charging.js";
+import { checkAndConsumeBudget } from "./apiBudget.js";
 
 // Per-vehicle last-poll bookkeeping (in-memory; resets on worker restart, acceptable for v1)
 const lastPollAt = new Map();
@@ -31,12 +32,25 @@ export async function runStateMachine(db, tesla, vehicle) {
   if (now - last < interval) return; // not due yet
   lastPollAt.set(vehicle.id, now);
 
+  // Hard daily ceiling on billed calls (see apiBudget.js) — independent backstop
+  // in case the intervals above ever aren't enough to stay under the Fleet API
+  // billing limit.
+  if (!(await checkAndConsumeBudget(db))) {
+    console.warn(`[stateMachine] daily Tesla API call budget exhausted, skipping vehicle ${vehicle.id}`);
+    return;
+  }
+
   // Lightweight, non-waking check first — avoids waking the car with a full poll.
   const lite = await tesla.getVehicleLite(vehicle.id, vehicle.tesla_vehicle_id);
   if (lite.response?.state === "asleep") {
     // Only record the transition once — not on every tick it stays asleep, which
     // would otherwise spam null-telemetry rows over the whole sleep period.
     if (knownState !== "asleep") await saveSnapshot(db, vehicle.id, { state: "asleep", ts: new Date() });
+    return;
+  }
+
+  if (!(await checkAndConsumeBudget(db))) {
+    console.warn(`[stateMachine] daily Tesla API call budget exhausted, skipping full poll for vehicle ${vehicle.id}`);
     return;
   }
 

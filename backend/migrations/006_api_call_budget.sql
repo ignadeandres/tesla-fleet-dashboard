@@ -1,0 +1,4 @@
+CREATE TABLE api_call_budget (
+  day DATE PRIMARY KEY,
+  calls INTEGER NOT NULL DEFAULT 0
+);
