@@ -16,8 +16,12 @@ Node.js · GraphQL · React · MUI · PostgreSQL · Docker Compose · Nginx (TLS
 - Permanent data retention in PostgreSQL
 
 ## Documentation
-- [Functional Specification](docs/functional-spec.md)
+- [Project Overview & Documentation Index](docs/functional-spec.md)
 - [Tesla Fleet API Setup Guide](docs/setup-tesla-api.md)
+- [Authentication](docs/authentication.md)
+- [Vehicle Telemetry Polling](docs/vehicle-telemetry-polling.md)
+- [Demo Mode](docs/demo-mode.md)
+- [Dashboard Overview](docs/dashboard-overview.md)
 
 ## Quick Start
 Point your domain's DNS at the VPS first (an A/AAAA record, not proxied through a CDN —

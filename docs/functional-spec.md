@@ -1,14 +1,13 @@
-# Functional Specification — Tesla Fleet Dashboard
+# Tesla Fleet Dashboard — Project Overview & Documentation Index
 
-## 1. Overview
-Private/public web platform to monitor Tesla vehicle(s) via the **Tesla Fleet API**. Multi-user capable (JWT auth), each user owns 1-N vehicles. Public GitHub repo (portfolio piece) with a **Demo Mode** for recruiters and a **Real Mode** for authenticated owner data.
+This file used to be a single monolithic functional spec for the whole project. It's now a short project-level overview — detailed, per-feature documentation (business requirements, functional spec, tech spec, implementation notes) lives under `docs/<feature-slug>/`, one folder per feature, and real developer/operator reference docs live at the top level of `docs/`.
 
-## 2. Objectives
-- Continuous, battery-conscious telemetry collection.
-- Historical, permanent storage of all available vehicle data.
-- Public-facing, CV-quality codebase with clean architecture and demo capability.
+## Overview
 
-## 3. Tech Stack
+Private/public web platform to monitor Tesla vehicle(s) via the official **Tesla Fleet API**. Multi-user capable (JWT auth), each user owns 1-N vehicles. Includes a public, seeded **Demo Mode** for portfolio/CV viewing, separate from real authenticated user data.
+
+## Tech Stack
+
 | Layer | Choice |
 |---|---|
 | Frontend | React + MUI |
@@ -19,11 +18,11 @@ Private/public web platform to monitor Tesla vehicle(s) via the **Tesla Fleet AP
 | Maps | OpenStreetMap (Leaflet) |
 | Auth | JWT (httpOnly cookie) |
 | Deployment | Docker Compose on VPS |
-| Repo | Monorepo (`/frontend`, `/backend`, `/worker`, `/docs`) |
+| Repo | npm workspaces monorepo (`/frontend`, `/backend`, `/worker`, `/packages/tesla-client`, `/docs`) |
 | License | MIT |
 | Tesla API Region | EU (`fleet-api.prd.eu.vn.cloud.tesla.com`) |
 
-## 4. Architecture
+## Architecture
 
 ```
 ┌─────────────┐     GraphQL      ┌─────────────┐
@@ -41,70 +40,47 @@ Private/public web platform to monitor Tesla vehicle(s) via the **Tesla Fleet AP
                                   └─────────────┘
 ```
 
-- **Worker**: independent process, smart polling, writes directly to Postgres.
-- **Backend**: GraphQL API, reads from Postgres, serves frontend, handles auth.
+- **Worker**: independent process, adaptive polling (see `docs/vehicle-telemetry-polling.md`), writes directly to Postgres.
+- **Backend**: GraphQL API, reads/writes Postgres, serves frontend, handles auth (see `docs/authentication.md`).
 - **Frontend**: React SPA, MUI components, consumes GraphQL.
+- **`packages/tesla-client`**: shared workspace package — Tesla OAuth, token refresh, and Fleet API calls, used by both `backend` and `worker` so this logic exists exactly once.
 
-## 5. Data Model (core entities)
+## Data Model (core entities)
 
-- **users**: id, email, password_hash, created_at
-- **vehicles**: id, user_id (FK), vin, display_name, model, tesla_vehicle_id
-- **vehicle_tokens**: vehicle_id (FK), access_token, refresh_token, expires_at
-- **telemetry_snapshots**: vehicle_id, timestamp, battery_level, speed, lat, lng, odometer, state (asleep/online/driving), software_version, climate_state, lock_state, door/window states, etc. (all Fleet API fields captured as available)
-- **trips**: id, vehicle_id, start_time, end_time, start_lat/lng, end_lat/lng, distance, route_points (array/table of breadcrumb GPS points)
-- **charging_sessions**: id, vehicle_id, start_time, end_time, start_battery_level, end_battery_level, energy_added_kwh, location (lat/lng), (cost estimation deferred to v2)
+Full schema, constraints, and rationale for each table live in the feature docs that own them:
 
-## 6. Feature Scope (v1)
+- **`users`**, **`vehicles`**, **`vehicle_tokens`** — see `docs/authentication/tech-spec.md`
+- **`telemetry_snapshots`**, **`trips`**, **`trip_points`**, **`charging_sessions`**, **`api_call_budget`** — see `docs/vehicle-telemetry-polling/tech-spec.md`
 
-### 6.1 Authentication
-- JWT-based login, single account can own multiple vehicles.
-- Demo Mode toggle: public deployment shows read-only seeded demo data without login; logging in reveals real user's own vehicle data only.
+## Feature Documentation Index
 
-### 6.2 Data Collection (Worker)
-- **Smart polling**: base interval 15 min; reduces frequency when vehicle is asleep (avoid wake calls), increases frequency when driving or charging.
-- Automatic OAuth token refresh before each poll (checks expiry, refreshes silently, persists new token).
-- Full GPS breadcrumb capture during trips (not just start/end).
-- Captures all available Fleet API data fields (battery, climate, doors, locks, software, tire pressure, etc.) per snapshot.
+Each feature below has a full SDLC paper trail at `docs/<feature-slug>/` (business-requirements → functional-spec → tech-spec → implementation-notes → documentation-summary), retroactively documented against the shipped code. Where a feature has genuine operational/developer-reference value beyond its pipeline trail, a real reference doc also exists at the top level of `docs/` (linked below and from `README.md`).
 
-### 6.3 Dashboards (Frontend)
-1. **Overview** — current vehicle state, live location, battery %, quick stats.
-2. **Trips** — map view (Leaflet/OSM) with full route playback, trip list, distance/duration history.
-3. **Charging Sessions** — history list, start/end battery %, kWh added, location, duration (no cost in v1).
-4. **Battery & Health Trends** — charts over time (degradation proxy, battery % patterns).
-5. **Vehicle State Log** — timeline of lock/climate/door/window state changes.
+| Feature | Pipeline trail | Reference doc |
+|---|---|---|
+| Authentication (JWT session + Tesla OAuth linking) | `docs/authentication/` | [docs/authentication.md](authentication.md) |
+| Vehicle telemetry polling (worker adaptive polling + API budget) | `docs/vehicle-telemetry-polling/` | [docs/vehicle-telemetry-polling.md](vehicle-telemetry-polling.md) |
+| Trips (trip history list + map) | `docs/trips/` | — (thin read-side view; non-obvious behavior is covered by inline code comments) |
+| Charging sessions (charging history table) | `docs/charging-sessions/` | — (same as above) |
+| Battery health trends (battery % chart — note: not a degradation metric, see the feature's business-requirements for the naming caveat) | `docs/battery-health-trends/` | — (same as above) |
+| Vehicle state log (state history table) | `docs/vehicle-state-log/` | — (same as above) |
+| Demo mode (public seeded read-only account) | `docs/demo-mode/` | [docs/demo-mode.md](demo-mode.md) — **includes a known security issue**, read before deploying publicly |
+| Dashboard overview (per-vehicle landing page + vehicle selector) | `docs/dashboard-overview/` | [docs/dashboard-overview.md](dashboard-overview.md) |
 
-### 6.4 Multi-Vehicle Support
-- User can register multiple vehicles; all dashboards are vehicle-scoped via a vehicle selector.
-- Strict data isolation: users only query their own vehicles (enforced at GraphQL resolver level via `user_id`).
+## Out of Scope (v1, still accurate)
 
-## 7. Out of Scope (v1)
 - Notifications/alerts (push, email, in-app).
 - Charging cost estimation.
 - CI/CD pipelines.
 - Multi-timezone support (single fixed timezone; UTC stored, converted in UI).
 
-## 8. Setup Requirements (to be documented in README)
-- Tesla Developer account + registered Fleet API app (EU region).
-- Public key hosted at `/.well-known/appspecific/com.tesla.3p.public-key.pem` on deployment domain.
-- Virtual key pairing via Tesla mobile app (per vehicle).
-- `.env` file for secrets (Tesla client ID/secret, JWT secret, DB credentials) — excluded via `.gitignore`.
-- Docker Compose stack: `frontend`, `backend`, `worker`, `postgres`.
+## Setup
 
-## 9. Non-Functional Requirements
+Tesla Developer app registration, key pairing, and deployment steps: see [docs/setup-tesla-api.md](setup-tesla-api.md) and the Quick Start in the repo [README](../README.md).
+
+## Non-Functional Requirements
+
 - Data retention: permanent (no purge).
 - Timezone: UTC stored, single fixed display timezone in UI.
-- Security: secrets never committed; demo data seed script provided for public/local use.
+- Security: secrets never committed; demo data seed script provided for public/local use (see `docs/demo-mode.md` for its known security caveat).
 - Portfolio quality: clean commit history, README with architecture diagram, MIT license.
-
-## 10. Open Items — resolved for v1
-- Repo name: `tesla-fleet-dashboard`.
-- GraphQL schema: `backend/src/graphql/schema.graphql`.
-- Postgres schema/migrations: `backend/migrations/001_init.sql` … `004_charging.sql`.
-- Worker polling state-machine thresholds (`worker/src/stateMachine.js`): 60 min while
-  asleep, 15 min idle, 1 min driving, 5 min charging.
-- Vehicle linking: full self-service Tesla OAuth flow (`GET /auth/tesla/login` →
-  Tesla consent → `GET /auth/tesla/callback`), not a manual per-vehicle script. The
-  backend auto-inserts the linked vehicle(s) + tokens for the authenticated user.
-- No vehicle-command signing ships in v1 — only `vehicle_device_data` +
-  `vehicle_location` scopes are requested (see `docs/setup-tesla-api.md`), and the
-  manual "Refresh Now" action only needs the unsigned `wake_up` endpoint.
