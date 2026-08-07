@@ -86,11 +86,21 @@ async function refreshVehicle(_, { id }, ctx) {
     // climate_state from vehicle_data entirely (not just individual fields), which
     // is why odometer/locked/GPS can go missing even though charge_state is fine.
     // An explicit wake gets the rest of the telemetry back; a plain re-poll won't.
+    // 10x3s (double the asleep-wake budget above): waking the MCU specifically
+    // while mid-charge seems to take longer than a plain sleep->online wake.
     await tesla.wakeVehicle(vehicle.id, vehicle.teslaVehicleId);
-    for (let attempt = 0; attempt < 5 && !data.vehicle_state; attempt++) {
+    for (let attempt = 0; attempt < 10 && !data.vehicle_state; attempt++) {
       await new Promise((resolve) => setTimeout(resolve, 3000));
       full = await tesla.getVehicleState(vehicle.id, vehicle.teslaVehicleId);
       data = full.response;
+    }
+    if (!data.vehicle_state) {
+      // Not fatal — still save whatever charge_state gave us (fresh battery/range),
+      // getLatestSnapshot's fallback covers the rest. Logged so we can tell, from
+      // actual usage, whether this is a timing issue (needs more budget) or Tesla's
+      // wake_up just doesn't force vehicle_state while the vehicle is already
+      // "online" (charging) rather than genuinely "asleep".
+      console.warn(`[refreshVehicle] vehicle ${vehicle.id} woke but vehicle_state still missing after retries`);
     }
   }
 
