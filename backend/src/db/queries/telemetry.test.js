@@ -5,7 +5,7 @@ import { getLatestSnapshot } from "./telemetry.js";
 function makeFakeDb({ latest, fallback }) {
   return {
     query: async (sql) => {
-      if (sql.includes("odometer IS NOT NULL")) return { rows: fallback ? [fallback] : [] };
+      if (sql.includes("battery_level IS NOT NULL")) return { rows: fallback ? [fallback] : [] };
       return { rows: latest ? [latest] : [] };
     },
   };
@@ -27,6 +27,17 @@ test("falls back to the last real reading when the latest row is a bare asleep m
   assert.equal(snap.ts, "t2");
   assert.equal(snap.odometer, 100);
   assert.equal(snap.batteryLevel, 80);
+});
+
+test("returns a full poll as-is even when odometer is missing, instead of masking it with an older fallback row", async () => {
+  const db = makeFakeDb({
+    latest: { state: "charging", ts: "t2", odometer: null, batteryLevel: 29 },
+    fallback: { state: "charging", ts: "t1", odometer: 34493.9, batteryLevel: 47 },
+  });
+  const snap = await getLatestSnapshot(db, "v1");
+  assert.equal(snap.ts, "t2");
+  assert.equal(snap.batteryLevel, 29);
+  assert.equal(snap.odometer, null);
 });
 
 test("returns the bare asleep row when there's no prior reading at all", async () => {

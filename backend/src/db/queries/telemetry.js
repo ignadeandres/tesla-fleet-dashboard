@@ -14,14 +14,18 @@ export async function getLatestSnapshot(db, vehicleId) {
     [vehicleId]
   );
   const latest = rows[0];
-  if (!latest || latest.odometer != null) return latest || null;
+  // Bare state-transition rows (e.g. going asleep) are written with no charge_state
+  // at all, so battery_level is null — unlike a full poll, which always has
+  // battery_level even on the (separately tracked) cases where odometer comes back
+  // missing. Keying this check on odometer instead would treat every odometer-less
+  // full poll as a bare marker and permanently mask it behind old fallback data.
+  if (!latest || latest.batteryLevel != null) return latest || null;
 
-  // Bare state-transition rows (e.g. going asleep) carry no telemetry — fall back
-  // to the most recent row that actually had a reading, keeping the fresher state/ts
-  // so the UI still shows "Asleep" rather than a stale status.
+  // Fall back to the most recent row that actually had a reading, keeping the
+  // fresher state/ts so the UI still shows "Asleep" rather than a stale status.
   const { rows: fallbackRows } = await db.query(
     `SELECT ${SELECT_FIELDS} FROM telemetry_snapshots
-     WHERE vehicle_id = $1 AND odometer IS NOT NULL ORDER BY ts DESC LIMIT 1`,
+     WHERE vehicle_id = $1 AND battery_level IS NOT NULL ORDER BY ts DESC LIMIT 1`,
     [vehicleId]
   );
   const fallback = fallbackRows[0];
