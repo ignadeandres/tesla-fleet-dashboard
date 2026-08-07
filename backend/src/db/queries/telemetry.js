@@ -14,22 +14,31 @@ export async function getLatestSnapshot(db, vehicleId) {
     [vehicleId]
   );
   const latest = rows[0];
-  // Bare state-transition rows (e.g. going asleep) are written with no charge_state
-  // at all, so battery_level is null — unlike a full poll, which always has
-  // battery_level even on the (separately tracked) cases where odometer comes back
-  // missing. Keying this check on odometer instead would treat every odometer-less
-  // full poll as a bare marker and permanently mask it behind old fallback data.
-  if (!latest || latest.batteryLevel != null) return latest || null;
+  if (!latest || latest.odometer != null) return latest || null;
 
-  // Fall back to the most recent row that actually had a reading, keeping the
-  // fresher state/ts so the UI still shows "Asleep" rather than a stale status.
+  // odometer missing covers two different partial-poll cases: a bare state-transition
+  // marker (e.g. going asleep) writes no telemetry at all, and a full poll can also
+  // come back with only charge_state populated — Tesla's own API omits vehicle_state/
+  // drive_state/climate_state whenever the car's main computer sleeps while the BMS
+  // keeps charging and stays responsive, which happens on most overnight charges.
+  // Either way, backfill each missing field from the most recent row that had it,
+  // while trusting `latest` for state/ts always and for any field it did get fresh
+  // (e.g. battery_level/battery_range, which come from charge_state and are present
+  // even when the rest of the poll is empty).
   const { rows: fallbackRows } = await db.query(
     `SELECT ${SELECT_FIELDS} FROM telemetry_snapshots
-     WHERE vehicle_id = $1 AND battery_level IS NOT NULL ORDER BY ts DESC LIMIT 1`,
+     WHERE vehicle_id = $1 AND odometer IS NOT NULL ORDER BY ts DESC LIMIT 1`,
     [vehicleId]
   );
   const fallback = fallbackRows[0];
-  return fallback ? { ...fallback, state: latest.state, ts: latest.ts } : latest;
+  if (!fallback) return latest;
+
+  const merged = { state: latest.state, ts: latest.ts };
+  for (const key of Object.keys(fallback)) {
+    if (key === "state" || key === "ts") continue;
+    merged[key] = latest[key] != null ? latest[key] : fallback[key];
+  }
+  return merged;
 }
 
 // Capped even with no from/to — worker polls as often as every 60s while driving and
