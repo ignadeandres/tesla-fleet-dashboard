@@ -11,10 +11,10 @@ function makeFakeDb({ latest, fallback }) {
   };
 }
 
-test("returns the latest row as-is when it already has telemetry", async () => {
+test("returns the latest row as-is when it already has telemetry, with vehicleStateTs equal to ts", async () => {
   const db = makeFakeDb({ latest: { state: "driving", ts: "t2", odometer: 100 } });
   const snap = await getLatestSnapshot(db, "v1");
-  assert.deepEqual(snap, { state: "driving", ts: "t2", odometer: 100 });
+  assert.deepEqual(snap, { state: "driving", ts: "t2", odometer: 100, vehicleStateTs: "t2" });
 });
 
 test("falls back to the last real reading when the latest row is a bare asleep marker, keeping the fresh state/ts", async () => {
@@ -27,6 +27,7 @@ test("falls back to the last real reading when the latest row is a bare asleep m
   assert.equal(snap.ts, "t2");
   assert.equal(snap.odometer, 100);
   assert.equal(snap.batteryLevel, 80);
+  assert.equal(snap.vehicleStateTs, "t1");
 });
 
 test("backfills odometer/locked from the last full reading when a poll comes back charge_state-only, but keeps fresh battery/state/ts", async () => {
@@ -43,6 +44,7 @@ test("backfills odometer/locked from the last full reading when a poll comes bac
   assert.equal(snap.batteryLevel, 29);
   assert.equal(snap.odometer, 34493.9);
   assert.equal(snap.locked, true);
+  assert.equal(snap.vehicleStateTs, "t1");
 });
 
 test("returns the bare asleep row when there's no prior reading at all", async () => {
@@ -50,6 +52,7 @@ test("returns the bare asleep row when there's no prior reading at all", async (
   const snap = await getLatestSnapshot(db, "v1");
   assert.equal(snap.state, "asleep");
   assert.equal(snap.odometer, null);
+  assert.equal(snap.vehicleStateTs, "t1");
 });
 
 test("returns null when there's no snapshot yet", async () => {

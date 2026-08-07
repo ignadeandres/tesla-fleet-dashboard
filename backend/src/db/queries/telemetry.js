@@ -14,7 +14,10 @@ export async function getLatestSnapshot(db, vehicleId) {
     [vehicleId]
   );
   const latest = rows[0];
-  if (!latest || latest.odometer != null) return latest || null;
+  // vehicleStateTs: when the odometer/locked/GPS fields being shown actually came
+  // from. Defaults to the row's own ts (they're fresh); overridden below when
+  // they're carried forward from an older row instead.
+  if (!latest || latest.odometer != null) return latest ? { ...latest, vehicleStateTs: latest.ts } : null;
 
   // odometer missing covers two different partial-poll cases: a bare state-transition
   // marker (e.g. going asleep) writes no telemetry at all, and a full poll can also
@@ -31,9 +34,9 @@ export async function getLatestSnapshot(db, vehicleId) {
     [vehicleId]
   );
   const fallback = fallbackRows[0];
-  if (!fallback) return latest;
+  if (!fallback) return { ...latest, vehicleStateTs: latest.ts };
 
-  const merged = { state: latest.state, ts: latest.ts };
+  const merged = { state: latest.state, ts: latest.ts, vehicleStateTs: fallback.ts };
   for (const key of Object.keys(fallback)) {
     if (key === "state" || key === "ts") continue;
     merged[key] = latest[key] != null ? latest[key] : fallback[key];

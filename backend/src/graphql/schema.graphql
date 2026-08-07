@@ -21,6 +21,12 @@ type Vehicle {
 
 type TelemetrySnapshot {
   ts: DateTime!
+  # When odometer/locked/GPS/etc actually came from. Equal to ts unless those fields
+  # were carried forward from an older row — e.g. Tesla omits vehicle_state from the
+  # API entirely while the car's main computer sleeps mid-charge, so ts (from
+  # charge_state, always fresh) can be newer than the vehicle_state data shown
+  # alongside it. Only set on Vehicle.latestSnapshot, not on stateLog rows.
+  vehicleStateTs: DateTime
   state: String
   batteryLevel: Int
   batteryRange: Float

@@ -3,6 +3,7 @@ import { gql } from "@apollo/client";
 const SNAPSHOT_FIELDS = gql`
   fragment SnapshotFields on TelemetrySnapshot {
     ts
+    vehicleStateTs
     state
     batteryLevel
     batteryRange

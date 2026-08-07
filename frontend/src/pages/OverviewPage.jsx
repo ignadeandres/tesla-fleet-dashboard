@@ -6,13 +6,18 @@ import { VEHICLE_OVERVIEW_QUERY, REFRESH_VEHICLE_MUTATION } from "../graphql/que
 import { useAuth } from "../auth/AuthContext.jsx";
 import { Map } from "../components/Map.jsx";
 
-function Stat({ label, value }) {
+function Stat({ label, value, caption }) {
   return (
     <Paper sx={{ p: 2 }}>
       <Typography variant="caption" color="text.secondary">
         {label}
       </Typography>
       <Typography variant="h5">{value}</Typography>
+      {caption && (
+        <Typography variant="caption" color="text.secondary" display="block">
+          {caption}
+        </Typography>
+      )}
     </Paper>
   );
 }
@@ -33,6 +38,13 @@ export function OverviewPage() {
   if (loading && !data) return <CircularProgress />;
   const vehicle = data?.vehicle;
   const snap = vehicle?.latestSnapshot;
+  // vehicleStateTs is older than ts when odometer/locked/GPS were carried forward
+  // from an earlier reading (e.g. Tesla omits that data while the car's main
+  // computer sleeps mid-charge) rather than coming from this snapshot fresh.
+  const vehicleStateStale = snap?.vehicleStateTs && snap.vehicleStateTs !== snap.ts;
+  const vehicleStateCaption = vehicleStateStale
+    ? `as of ${new Date(snap.vehicleStateTs).toLocaleString()}`
+    : null;
 
   return (
     <Box>
@@ -65,10 +77,14 @@ export function OverviewPage() {
               <Stat label="Range" value={snap.batteryRange != null ? `${Math.round(snap.batteryRange)} km` : "—"} />
             </Grid>
             <Grid item xs={6} sm={3}>
-              <Stat label="Odometer" value={snap.odometer != null ? `${Math.round(snap.odometer)} km` : "—"} />
+              <Stat
+                label="Odometer"
+                value={snap.odometer != null ? `${Math.round(snap.odometer)} km` : "—"}
+                caption={vehicleStateCaption}
+              />
             </Grid>
             <Grid item xs={6} sm={3}>
-              <Stat label="Locked" value={snap.locked ? "Yes" : "No"} />
+              <Stat label="Locked" value={snap.locked ? "Yes" : "No"} caption={vehicleStateCaption} />
             </Grid>
           </Grid>
           {snap.lat != null && snap.lng != null && (

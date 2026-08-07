@@ -77,31 +77,20 @@ async function refreshVehicle(_, { id }, ctx) {
     }
   }
 
-  let full = await tesla.getVehicleState(vehicle.id, vehicle.teslaVehicleId);
-  let data = full.response;
+  const full = await tesla.getVehicleState(vehicle.id, vehicle.teslaVehicleId);
+  const data = full.response;
 
   if (!data.vehicle_state) {
-    // The car can show "online" and keep charging (BMS responsive) while its main
-    // computer is fully asleep — Tesla then omits vehicle_state/drive_state/
-    // climate_state from vehicle_data entirely (not just individual fields), which
-    // is why odometer/locked/GPS can go missing even though charge_state is fine.
-    // An explicit wake gets the rest of the telemetry back; a plain re-poll won't.
-    // 10x3s (double the asleep-wake budget above): waking the MCU specifically
-    // while mid-charge seems to take longer than a plain sleep->online wake.
-    await tesla.wakeVehicle(vehicle.id, vehicle.teslaVehicleId);
-    for (let attempt = 0; attempt < 10 && !data.vehicle_state; attempt++) {
-      await new Promise((resolve) => setTimeout(resolve, 3000));
-      full = await tesla.getVehicleState(vehicle.id, vehicle.teslaVehicleId);
-      data = full.response;
-    }
-    if (!data.vehicle_state) {
-      // Not fatal — still save whatever charge_state gave us (fresh battery/range),
-      // getLatestSnapshot's fallback covers the rest. Logged so we can tell, from
-      // actual usage, whether this is a timing issue (needs more budget) or Tesla's
-      // wake_up just doesn't force vehicle_state while the vehicle is already
-      // "online" (charging) rather than genuinely "asleep".
-      console.warn(`[refreshVehicle] vehicle ${vehicle.id} woke but vehicle_state still missing after retries`);
-    }
+    // Confirmed by production testing: even a 30s wake-and-retry loop never got
+    // vehicle_state back here. Tesla's wake_up is for a genuinely "asleep" vehicle —
+    // this one already shows "online" (charging, BMS responsive), and Tesla simply
+    // doesn't populate vehicle_state/drive_state/climate_state for a parked,
+    // charging car regardless of wake pings (almost certainly deliberate, to stop
+    // apps abusing wake_up to drain the 12V battery overnight). Retrying bought
+    // nothing but 30s of wasted wait — not attempting it again. odometer/locked/GPS
+    // stay whatever getLatestSnapshot's fallback carries forward; it'll catch up for
+    // real next time the vehicle is actually driven.
+    console.warn(`[refreshVehicle] vehicle ${vehicle.id} online but vehicle_state missing (MCU asleep mid-charge)`);
   }
 
   const driving = ["D", "R", "N"].includes(data.drive_state?.shift_state) || data.drive_state?.speed > 0;
