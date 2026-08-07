@@ -28,7 +28,18 @@ export function efficiencyKmPerPercent({ distanceKm, startBatteryLevel, endBatte
   return distanceKm / used;
 }
 
+// Same flat estimate ChargingSession.energyAddedKwh uses (packages/tesla-client/src/charging.js),
+// applied to the battery drop instead of the gain — not Tesla's own energy telemetry.
+export function energyUsedKwh({ startBatteryLevel, endBatteryLevel }) {
+  if (startBatteryLevel == null || endBatteryLevel == null) return null;
+  const used = startBatteryLevel - endBatteryLevel;
+  if (used <= 0) return null;
+  const batteryCapacityKwh = Number(process.env.BATTERY_CAPACITY_KWH || 75);
+  return (used / 100) * batteryCapacityKwh;
+}
+
 export const Trip = {
   route: (trip, _, ctx) => getTripPoints(ctx.db, trip.id),
   efficiencyKmPerPercent,
+  energyUsedKwh,
 };

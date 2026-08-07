@@ -16,6 +16,7 @@ export const VEHICLE_TRIPS_QUERY = gql`
         startBatteryLevel
         endBatteryLevel
         efficiencyKmPerPercent
+        energyUsedKwh
       }
     }
   }

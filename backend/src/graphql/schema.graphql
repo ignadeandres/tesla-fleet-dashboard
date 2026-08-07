@@ -54,6 +54,10 @@ type Trip {
   # distanceKm / battery % consumed. Null when battery level wasn't captured or net
   # usage isn't positive (e.g. regen/charging offset the trip's own consumption).
   efficiencyKmPerPercent: Float
+  # Flat estimate: (battery % consumed / 100) * BATTERY_CAPACITY_KWH — same
+  # approach ChargingSession.energyAddedKwh uses, not Tesla's own energy telemetry.
+  # Null under the same conditions as efficiencyKmPerPercent.
+  energyUsedKwh: Float
   route: [TripPoint!]!
 }
 

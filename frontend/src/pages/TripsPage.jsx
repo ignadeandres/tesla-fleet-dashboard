@@ -56,6 +56,7 @@ export function TripsPage() {
                   t.distanceKm ? t.distanceKm.toFixed(1) + " km" : "—",
                   formatDuration(t.durationSeconds),
                   formatDischarge(t.startBatteryLevel, t.endBatteryLevel),
+                  t.energyUsedKwh ? `${t.energyUsedKwh.toFixed(1)} kWh` : null,
                   t.efficiencyKmPerPercent ? `${t.efficiencyKmPerPercent.toFixed(1)} km/%` : null,
                 ]
                   .filter(Boolean)

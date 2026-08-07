@@ -77,8 +77,23 @@ async function refreshVehicle(_, { id }, ctx) {
     }
   }
 
-  const full = await tesla.getVehicleState(vehicle.id, vehicle.teslaVehicleId);
-  const data = full.response;
+  let full = await tesla.getVehicleState(vehicle.id, vehicle.teslaVehicleId);
+  let data = full.response;
+
+  if (!data.vehicle_state) {
+    // The car can show "online" and keep charging (BMS responsive) while its main
+    // computer is fully asleep — Tesla then omits vehicle_state/drive_state/
+    // climate_state from vehicle_data entirely (not just individual fields), which
+    // is why odometer/locked/GPS can go missing even though charge_state is fine.
+    // An explicit wake gets the rest of the telemetry back; a plain re-poll won't.
+    await tesla.wakeVehicle(vehicle.id, vehicle.teslaVehicleId);
+    for (let attempt = 0; attempt < 5 && !data.vehicle_state; attempt++) {
+      await new Promise((resolve) => setTimeout(resolve, 3000));
+      full = await tesla.getVehicleState(vehicle.id, vehicle.teslaVehicleId);
+      data = full.response;
+    }
+  }
+
   const driving = ["D", "R", "N"].includes(data.drive_state?.shift_state) || data.drive_state?.speed > 0;
   const charging = data.charge_state?.charging_state === "Charging";
   const state = driving ? "driving" : charging ? "charging" : "online";
