@@ -20,7 +20,10 @@ function Stat({ label, value }) {
 export function OverviewPage() {
   const { vehicleId } = useParams();
   const auth = useAuth();
-  const { data, loading, refetch } = useQuery(VEHICLE_OVERVIEW_QUERY, { variables: { id: vehicleId } });
+  const { data, loading, refetch } = useQuery(VEHICLE_OVERVIEW_QUERY, {
+    variables: { id: vehicleId },
+    fetchPolicy: "cache-and-network",
+  });
   const [refreshVehicle, { loading: refreshing, error: refreshError }] = useMutation(REFRESH_VEHICLE_MUTATION, {
     variables: { id: vehicleId },
     onCompleted: () => refetch(),
