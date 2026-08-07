@@ -6,7 +6,10 @@ import { BatteryTrendChart } from "../components/charts/BatteryTrendChart.jsx";
 
 export function TrendsPage() {
   const { vehicleId } = useParams();
-  const { data, loading } = useQuery(VEHICLE_STATE_LOG_QUERY, { variables: { id: vehicleId } });
+  const { data, loading } = useQuery(VEHICLE_STATE_LOG_QUERY, {
+    variables: { id: vehicleId },
+    fetchPolicy: "cache-and-network",
+  });
 
   if (loading && !data) return <CircularProgress />;
   const log = data?.vehicle?.stateLog || [];

@@ -14,7 +14,10 @@ import { VEHICLE_CHARGING_QUERY } from "../graphql/queries/charging.js";
 
 export function ChargingPage() {
   const { vehicleId } = useParams();
-  const { data, loading } = useQuery(VEHICLE_CHARGING_QUERY, { variables: { id: vehicleId, limit: 50 } });
+  const { data, loading } = useQuery(VEHICLE_CHARGING_QUERY, {
+    variables: { id: vehicleId, limit: 50 },
+    fetchPolicy: "cache-and-network",
+  });
 
   if (loading && !data) return <CircularProgress />;
   const sessions = data?.vehicle?.chargingSessions || [];

@@ -14,8 +14,7 @@
 // fix, run this once, then restart the worker. Run this exactly once — re-running with
 // the same cutoff WILL convert the same rows again and corrupt them.
 import pg from "pg";
-import { toKm } from "tesla-client";
-import { totalDistanceKm } from "../worker/src/handlers/trip.js";
+import { toKm, totalDistanceKm } from "tesla-client";
 
 const pool = new pg.Pool({ connectionString: process.env.DATABASE_URL });
 

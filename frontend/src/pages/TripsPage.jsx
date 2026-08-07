@@ -27,7 +27,10 @@ function formatDischarge(startLevel, endLevel) {
 
 export function TripsPage() {
   const { vehicleId } = useParams();
-  const { data, loading } = useQuery(VEHICLE_TRIPS_QUERY, { variables: { id: vehicleId, limit: 30 } });
+  const { data, loading } = useQuery(VEHICLE_TRIPS_QUERY, {
+    variables: { id: vehicleId, limit: 30 },
+    fetchPolicy: "cache-and-network",
+  });
   const [selectedId, setSelectedId] = useState(null);
 
   const trips = data?.vehicle?.trips || [];

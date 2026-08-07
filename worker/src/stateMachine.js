@@ -1,6 +1,10 @@
-import { saveSnapshot } from "./handlers/snapshot.js";
-import { handleTripPoint, closeTripIfOpen } from "./handlers/trip.js";
-import { handleChargingUpdate, closeChargingSessionIfOpen } from "./handlers/charging.js";
+import {
+  saveSnapshot,
+  handleTripPoint,
+  closeTripIfOpen,
+  handleChargingUpdate,
+  closeChargingSessionIfOpen,
+} from "tesla-client";
 import { checkAndConsumeBudget } from "./apiBudget.js";
 
 // Per-vehicle last-poll bookkeeping (in-memory; resets on worker restart, acceptable for v1)

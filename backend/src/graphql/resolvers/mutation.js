@@ -1,5 +1,11 @@
 import { GraphQLError } from "graphql";
-import { createTeslaClient } from "tesla-client";
+import {
+  createTeslaClient,
+  handleTripPoint,
+  closeTripIfOpen,
+  handleChargingUpdate,
+  closeChargingSessionIfOpen,
+} from "tesla-client";
 import { db } from "../../db/pool.js";
 import { getUserByEmail, createUser } from "../../db/queries/users.js";
 import { insertSnapshot, getLatestSnapshot } from "../../db/queries/telemetry.js";
@@ -78,6 +84,18 @@ async function refreshVehicle(_, { id }, ctx) {
   const state = driving ? "driving" : charging ? "charging" : "online";
 
   await insertSnapshot(ctx.db, vehicle.id, { state, ts: new Date(), raw: data });
+
+  if (driving) {
+    await handleTripPoint(ctx.db, vehicle.id, data);
+  } else {
+    await closeTripIfOpen(ctx.db, vehicle.id, data);
+  }
+  if (charging) {
+    await handleChargingUpdate(ctx.db, vehicle.id, data);
+  } else {
+    await closeChargingSessionIfOpen(ctx.db, vehicle.id, data);
+  }
+
   return getLatestSnapshot(ctx.db, vehicle.id);
 }
 
