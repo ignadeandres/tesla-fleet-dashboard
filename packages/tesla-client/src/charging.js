@@ -38,6 +38,11 @@ export async function handleChargingUpdate(db, vehicleId, data) {
 }
 
 export async function closeChargingSessionIfOpen(db, vehicleId, data) {
+  // Same reasoning as closeTripIfOpen: a payload with no charge_state can't tell a
+  // finished charge from a partial response, and closing wrongly bakes a bogus
+  // end_battery_level and energy_added_kwh into the session.
+  if (!data.charge_state) return;
+
   const session = await getOpenSession(db, vehicleId);
   if (!session) return;
 

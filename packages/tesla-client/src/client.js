@@ -18,10 +18,13 @@ export function createTeslaClient(db, teslaConfig) {
     getVehicleState(vehicleId, teslaVehicleId) {
       // Tesla excludes location_data from vehicle_data by default (privacy gate) —
       // must be requested explicitly or drive_state.latitude/longitude come back empty.
+      // The ";" separator MUST stay percent-encoded: sent raw it reads as a query-param
+      // delimiter, so Tesla sees only endpoints=charge_state and silently drops
+      // vehicle_state/drive_state/climate_state (odometer and GPS go null everywhere).
       const endpoints = "charge_state;climate_state;drive_state;vehicle_state;location_data";
       return client.call(
         vehicleId,
-        `/api/1/vehicles/${teslaVehicleId}/vehicle_data?endpoints=${endpoints}`
+        `/api/1/vehicles/${teslaVehicleId}/vehicle_data?endpoints=${encodeURIComponent(endpoints)}`
       );
     },
 

@@ -84,7 +84,11 @@ export function OverviewPage() {
               />
             </Grid>
             <Grid item xs={6} sm={3}>
-              <Stat label="Locked" value={snap.locked ? "Yes" : "No"} caption={vehicleStateCaption} />
+              <Stat
+                label="Locked"
+                value={snap.locked != null ? (snap.locked ? "Yes" : "No") : "—"}
+                caption={vehicleStateCaption}
+              />
             </Grid>
           </Grid>
           {snap.lat != null && snap.lng != null && (

@@ -35,6 +35,11 @@ export async function handleTripPoint(db, vehicleId, data) {
   const chargeState = data.charge_state || {};
   const lat = driveState.latitude;
   const lng = driveState.longitude;
+  // trip_points.lat/lng are NOT NULL (migration 003), so a payload without coordinates
+  // would throw mid-tick and abort everything after it in the caller. Nothing useful to
+  // record without a position anyway — skip rather than open a trip we can't plot.
+  if (lat == null || lng == null) return;
+
   const speed = toKm(driveState.speed);
   const ts = new Date();
 
@@ -51,6 +56,7 @@ export async function handleTripPoint(db, vehicleId, data) {
       [vehicleId, ts, lat, lng, chargeState.battery_level ?? null]
     );
     trip = rows[0] || (await getOpenTrip(db, vehicleId));
+    if (!trip) return; // conflicting trip was closed between the INSERT and the re-read
   }
 
   await db.query(
@@ -60,6 +66,11 @@ export async function handleTripPoint(db, vehicleId, data) {
 }
 
 export async function closeTripIfOpen(db, vehicleId, data) {
+  // Callers infer "not driving" from a falsy shift_state, which is indistinguishable from
+  // drive_state being absent entirely. Closing on a partial payload would end a live trip
+  // with a null end location and a truncated distance, then open a second one next poll.
+  if (!data.drive_state) return;
+
   const trip = await getOpenTrip(db, vehicleId);
   if (!trip) return;
 
