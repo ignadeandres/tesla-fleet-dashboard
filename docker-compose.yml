@@ -36,6 +36,7 @@ services:
       TESLA_API_BASE: https://fleet-api.prd.eu.vn.cloud.tesla.com
       TESLA_AUTH_BASE: https://fleet-auth.prd.vn.cloud.tesla.com
       DEMO_MODE_ENABLED: "true"
+      BATTERY_CAPACITY_KWH: ${BATTERY_CAPACITY_KWH:-56}
       NODE_ENV: production
     volumes:
       - ./backend/keys:/app/backend/keys:ro
@@ -57,7 +58,7 @@ services:
       TESLA_API_BASE: https://fleet-api.prd.eu.vn.cloud.tesla.com
       TESLA_AUTH_BASE: https://fleet-auth.prd.vn.cloud.tesla.com
       TESLA_MAX_CALLS_PER_DAY: ${TESLA_MAX_CALLS_PER_DAY:-300}
-      BATTERY_CAPACITY_KWH: "75"
+      BATTERY_CAPACITY_KWH: ${BATTERY_CAPACITY_KWH:-56}
       NODE_ENV: production
 
   frontend:

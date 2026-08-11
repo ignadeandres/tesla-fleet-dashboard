@@ -49,8 +49,9 @@ export async function closeChargingSessionIfOpen(db, vehicleId, data) {
   const chargeState = data.charge_state || {};
   const startLevel = session.start_battery_level ?? 0;
   const endLevel = chargeState.battery_level ?? startLevel;
-  // Rough kWh estimate: (% gained / 100) * battery capacity (75 kWh default for Model 3 LR — adjust as needed)
-  const batteryCapacityKwh = Number(process.env.BATTERY_CAPACITY_KWH || 75);
+  // Rough kWh estimate: (% gained / 100) * usable pack capacity. Default matches the
+  // deployed vehicle; override with BATTERY_CAPACITY_KWH (set for both services in .env).
+  const batteryCapacityKwh = Number(process.env.BATTERY_CAPACITY_KWH || 56);
   const energyAdded = ((endLevel - startLevel) / 100) * batteryCapacityKwh;
 
   await db.query(

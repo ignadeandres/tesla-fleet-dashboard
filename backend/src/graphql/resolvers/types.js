@@ -34,7 +34,7 @@ export function energyUsedKwh({ startBatteryLevel, endBatteryLevel }) {
   if (startBatteryLevel == null || endBatteryLevel == null) return null;
   const used = startBatteryLevel - endBatteryLevel;
   if (used <= 0) return null;
-  const batteryCapacityKwh = Number(process.env.BATTERY_CAPACITY_KWH || 75);
+  const batteryCapacityKwh = Number(process.env.BATTERY_CAPACITY_KWH || 56);
   return (used / 100) * batteryCapacityKwh;
 }
 
