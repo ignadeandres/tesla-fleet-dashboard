@@ -46,10 +46,14 @@ export async function runStateMachine(db, tesla, vehicle) {
 
   // Lightweight, non-waking check first — avoids waking the car with a full poll.
   const lite = await tesla.getVehicleLite(vehicle.id, vehicle.tesla_vehicle_id);
-  if (lite.response?.state === "asleep") {
-    // Only record the transition once — not on every tick it stays asleep, which
-    // would otherwise spam null-telemetry rows over the whole sleep period.
-    if (knownState !== "asleep") await saveSnapshot(db, vehicle.id, { state: "asleep", ts: new Date() });
+  // Gate on "online" rather than on "asleep": Tesla also reports "offline" and "waking",
+  // and vehicle_data answers 408 for every one of those, burning a billed call and
+  // aborting the tick before the trip/charging handlers below ever run.
+  const liteState = lite.response?.state || "unknown";
+  if (liteState !== "online") {
+    // Only record the transition once — not on every tick it stays down, which would
+    // otherwise spam null-telemetry rows over the whole sleep/outage period.
+    if (knownState !== liteState) await saveSnapshot(db, vehicle.id, { state: liteState, ts: new Date() });
     return;
   }
 

@@ -66,14 +66,21 @@ async function refreshVehicle(_, { id }, ctx) {
   lastRefreshAt.set(vehicle.id, Date.now());
 
   let lite = await tesla.getVehicleLite(vehicle.id, vehicle.teslaVehicleId);
-  if (lite.response?.state === "asleep") {
+  // Gate on "online", not on "asleep": Tesla also reports "offline" and "waking", and
+  // vehicle_data answers 408 for all of them — so anything short of online needs the
+  // wake-and-poll loop, not a straight-to-full-poll that fails.
+  if (lite.response?.state !== "online") {
     await tesla.wakeVehicle(vehicle.id, vehicle.teslaVehicleId);
-    for (let attempt = 0; attempt < 5 && lite.response?.state === "asleep"; attempt++) {
+    for (let attempt = 0; attempt < 5 && lite.response?.state !== "online"; attempt++) {
       await new Promise((resolve) => setTimeout(resolve, 3000));
       lite = await tesla.getVehicleLite(vehicle.id, vehicle.teslaVehicleId);
     }
-    if (lite.response?.state === "asleep") {
-      throw new GraphQLError("Vehicle did not wake up in time", { extensions: { code: "VEHICLE_UNREACHABLE" } });
+    if (lite.response?.state !== "online") {
+      // Name the state — "offline" (no connectivity) and "asleep" (won't wake) are very
+      // different problems and the old message couldn't tell them apart.
+      throw new GraphQLError(`Vehicle is ${lite.response?.state || "unreachable"} and did not wake up in time`, {
+        extensions: { code: "VEHICLE_UNREACHABLE" },
+      });
     }
   }
 
