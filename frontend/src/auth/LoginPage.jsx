@@ -24,8 +24,11 @@ export function LoginPage({ register = false }) {
   return (
     <Box display="flex" justifyContent="center" mt={10}>
       <Paper sx={{ p: 4, width: 360 }} component="form" onSubmit={handleSubmit}>
-        <Typography variant="h5" mb={2}>
+        <Typography variant="h5" mb={0.5} sx={{ fontWeight: 700, letterSpacing: "-0.02em" }}>
           {register ? "Create account" : "Log in"}
+        </Typography>
+        <Typography variant="body2" color="text.secondary" mb={2}>
+          Tesla Fleet Dashboard
         </Typography>
         {error && (
           <Alert severity="error" sx={{ mb: 2 }}>

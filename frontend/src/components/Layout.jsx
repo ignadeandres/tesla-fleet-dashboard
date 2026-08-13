@@ -23,7 +23,7 @@ export function Layout() {
     <Box>
       <AppBar position="static" color="transparent" sx={{ borderBottom: 1, borderColor: "divider" }}>
         <Toolbar sx={{ gap: 2, flexWrap: "wrap", py: 1 }}>
-          <Typography variant="h6" sx={{ flexGrow: 0 }}>
+          <Typography variant="h6" sx={{ flexGrow: 0, fontWeight: 700, letterSpacing: "-0.02em" }}>
             Tesla Fleet Dashboard
           </Typography>
           {auth.user?.isDemo && <Chip label="Demo Mode" color="primary" size="small" />}

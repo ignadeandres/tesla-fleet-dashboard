@@ -12,9 +12,11 @@ L.Icon.Default.mergeOptions({ iconRetinaUrl: markerIcon2x, iconUrl: markerIcon, 
 export function Map({ center, zoom = 15, height = 300, children }) {
   return (
     <MapContainer center={center} zoom={zoom} style={{ height, width: "100%" }}>
+      {/* CartoDB Dark Matter — a bright default basemap was the loudest thing on an
+          otherwise dark page; free, no API key, same tile-URL swap as OSM. */}
       <TileLayer
-        attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
-        url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+        attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>'
+        url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
       />
       {children}
     </MapContainer>

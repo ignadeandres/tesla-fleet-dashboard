@@ -12,22 +12,22 @@
 **Flow:**
 1. On mount, the page issues `VEHICLE_TRIPS_QUERY` for `vehicle(id: vehicleId).trips(limit: 30)`. No `offset` is sent (defaults to 0 server-side).
 2. Server returns up to 30 trip rows for that vehicle, ordered by `start_time` descending (most recent first). No client-side re-sorting occurs.
-3. Each returned row is rendered as one list item with:
-   - **Primary line:** `startTime` formatted via `Date.toLocaleString()` (user's browser locale/timezone).
-   - **Secondary line:** up to four segments joined with `" · "`, in fixed order:
-     1. Distance: `distanceKm.toFixed(1) + " km"` if `distanceKm` is truthy, else `"—"`.
-     2. Duration: `formatDuration(durationSeconds)` — see rule below; `"—"` if `durationSeconds` is falsy.
-     3. Battery used: `"{startBatteryLevel - endBatteryLevel}% used"` — this segment is **omitted entirely** (not shown, not placeholder) if either `startBatteryLevel` or `endBatteryLevel` is `null`.
-     4. Efficiency: `"{efficiencyKmPerPercent.toFixed(1)} km/%"` — this segment is **omitted entirely** if `efficiencyKmPerPercent` is falsy (null, 0, or negative — see Story 6).
+3. Each returned row is rendered as a two-line list item (redesigned from the original single dot-joined caption — same underlying fields, restructured for legibility):
+   - **Line 1:** `startTime` formatted via `Date.toLocaleString()` (left) and distance — `distanceKm.toFixed(1) + " km"` if `distanceKm` is truthy, else `"—"` (right, mono type, drive-blue).
+   - **Line 2:** duration + efficiency on the left, battery-used + energy on the right, each joined with `" · "` where present:
+     1. Duration: `formatDuration(durationSeconds)` — see rule below; `"—"` if `durationSeconds` is falsy.
+     2. Efficiency: `"{efficiencyKmPerPercent.toFixed(1)} km/%"` — **omitted entirely** if `efficiencyKmPerPercent` is falsy (null, 0, or negative — see Story 6).
+     3. Battery used: `"{startBatteryLevel - endBatteryLevel}% used"` — **omitted entirely** if either `startBatteryLevel` or `endBatteryLevel` is `null`.
+     4. Energy: `"{energyUsedKwh.toFixed(1)} kWh"` — **omitted entirely** if `energyUsedKwh` is falsy.
 
 **Business rules:**
 - Duration formatting (`formatDuration`): `< 60` minutes → `"X min"` (rounded); `>= 60` minutes → `"Yh Zm"` (floor hours, remainder minutes).
-- **Known inconsistency (documented, not fixed):** `distanceKm` and `durationSeconds` render `"—"` when falsy (including a legitimate value of `0`); `startBatteryLevel`/`endBatteryLevel`/`efficiencyKmPerPercent` are silently dropped from the line when falsy instead of showing a placeholder. A trip with genuinely 0 km distance or 0-second duration is indistinguishable from one with missing data.
+- **Known inconsistency (documented, not fixed):** `distanceKm` and `durationSeconds` render `"—"` when falsy (including a legitimate value of `0`); `startBatteryLevel`/`endBatteryLevel`/`efficiencyKmPerPercent`/`energyUsedKwh` are silently dropped from line 2 when falsy instead of showing a placeholder. A trip with genuinely 0 km distance or 0-second duration is indistinguishable from one with missing data. This inconsistency survived the line-1/line-2 restructure — it's a data-rule gap, not a layout one.
 
 **System states:**
 | State | Condition | Behavior |
 |---|---|---|
-| Loading (initial) | `loading === true` and no cached `data` yet | Page renders a single centered `CircularProgress` in place of the whole grid; list and map are not rendered. |
+| Loading (initial) | `loading === true` and no cached `data` yet | Page renders a single centered `Loader` (segmented charge-rail progress indicator, replacing the earlier `CircularProgress` spinner) in place of the whole grid; list and map are not rendered. |
 | Loading (refetch) | `loading === true` but `data` already present | No spinner shown — stale data stays on screen (Apollo cache-then-network behavior). |
 | Empty | Query resolves with `trips.length === 0` | List area shows `"No trips recorded yet."` instead of any rows. |
 | Success | `trips.length > 0` | Rows render as above; list container caps at 500px height with internal scroll (list independently scrollable from the rest of the page). |
@@ -45,8 +45,8 @@
 1. **Default selection:** `selectedId` state starts `null`. The page derives the *effectively selected* trip as `trips.find(t => t.id === selectedId) || trips[0]` — so with no explicit click, the first trip in the (already-sorted, most-recent-first) list is selected automatically once data loads.
 2. **User selection:** Clicking a row calls `setSelectedId(trip.id)`, which re-derives the selected trip to that row and marks it visually selected (`selected` prop on the list item).
 3. **Route fetch on selection:** Whenever the selected trip's `id` changes (including the initial auto-selection), a second query, `TRIP_ROUTE_QUERY`, fires for `vehicle(id: vehicleId).trip(id: selected.id).route`. This is a distinct request from the list query — no route data is fetched for unselected trips.
-4. **Map render:** The map is centered on the selected trip's `startLat`/`startLng` at zoom level 15, rendered at 500px height using OSM tiles.
-5. **Polyline:** If `route.length > 0`, all returned points are connected into a single `Polyline` (no per-point markers, no start/end pins, no color coding, no tooltips).
+4. **Map render:** The map is centered on the selected trip's `startLat`/`startLng` at zoom level 15, rendered at 500px height using CartoDB Dark Matter tiles (dark basemap — swapped from the original light OSM tiles, which read as a bright rectangle on the app's dark theme), framed in a hairline-bordered panel.
+5. **Polyline:** If `route.length > 0`, all returned points are connected into a single `Polyline`, styled in the app's "drive" accent blue (`#5EC8FF`, weight 3) — no per-point markers, no start/end pins, no tooltips.
 6. **Remount on trip switch:** The map component is keyed by `selected.id`. Switching the selected trip fully unmounts and remounts the map (rather than updating `center`/`zoom` props in place) — this is required because the underlying map library only applies `center`/`zoom` at mount time, not on prop update.
 
 **Business rules:**
