@@ -119,8 +119,16 @@ export function OverviewPage() {
             </Grid>
           </Grid>
           {snap.lat != null && snap.lng != null && (
-            <Box sx={{ border: 1, borderColor: "divider", borderRadius: 1, overflow: "hidden" }}>
-              <Map center={[snap.lat, snap.lng]}>
+            <Box
+              sx={{
+                height: { xs: "45vh", sm: "60vh" },
+                border: 1,
+                borderColor: "divider",
+                borderRadius: 1,
+                overflow: "hidden",
+              }}
+            >
+              <Map center={[snap.lat, snap.lng]} height="100%">
                 <Marker position={[snap.lat, snap.lng]}>
                   <Popup>Last seen {new Date(snap.ts).toLocaleString()}</Popup>
                 </Marker>

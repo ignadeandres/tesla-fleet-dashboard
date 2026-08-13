@@ -41,8 +41,12 @@ export function TripsPage() {
 
   return (
     <Grid container spacing={2}>
-      <Grid item xs={12} md={4}>
-        <List sx={{ maxHeight: "70vh", overflow: "auto" }}>
+      {/* Stacked on portrait/mobile (both items go xs=12), so without an explicit
+          order the map — the actual point of this page — used to land below a
+          list tall enough (70vh) that it was effectively invisible without a lot
+          of scrolling. Map first on narrow screens, list first at md+. */}
+      <Grid item xs={12} md={4} sx={{ order: { xs: 2, md: 1 } }}>
+        <List sx={{ maxHeight: { xs: "35vh", md: "70vh" }, overflow: "auto" }}>
           {trips.map((t) => (
             <ListItemButton
               key={t.id}
@@ -75,7 +79,7 @@ export function TripsPage() {
           {trips.length === 0 && <Typography color="text.secondary">No trips recorded yet.</Typography>}
         </List>
       </Grid>
-      <Grid item xs={12} md={8}>
+      <Grid item xs={12} md={8} sx={{ order: { xs: 1, md: 2 } }}>
         {!selected ? (
           <Typography color="text.secondary">Select a trip to see its route.</Typography>
         ) : selected.startLat == null || selected.startLng == null ? (
@@ -84,8 +88,16 @@ export function TripsPage() {
           // key={selected.id} forces a clean remount per trip — react-leaflet's
           // MapContainer only applies `center`/`zoom` on mount, so without this the
           // camera would stay put when switching between trips in different places.
-          <Box sx={{ border: 1, borderColor: "divider", borderRadius: 1, overflow: "hidden" }}>
-            <Map key={selected.id} center={[selected.startLat, selected.startLng]} height="70vh">
+          <Box
+            sx={{
+              height: { xs: "45vh", md: "70vh" },
+              border: 1,
+              borderColor: "divider",
+              borderRadius: 1,
+              overflow: "hidden",
+            }}
+          >
+            <Map key={selected.id} center={[selected.startLat, selected.startLng]} height="100%">
               {route.length > 0 && (
                 <Polyline positions={route.map((p) => [p.lat, p.lng])} pathOptions={{ color: tokens.drive, weight: 3 }} />
               )}
