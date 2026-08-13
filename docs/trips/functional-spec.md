@@ -30,7 +30,7 @@
 | Loading (initial) | `loading === true` and no cached `data` yet | Page renders a single centered `Loader` (segmented charge-rail progress indicator, replacing the earlier `CircularProgress` spinner) in place of the whole grid; list and map are not rendered. |
 | Loading (refetch) | `loading === true` but `data` already present | No spinner shown — stale data stays on screen (Apollo cache-then-network behavior). |
 | Empty | Query resolves with `trips.length === 0` | List area shows `"No trips recorded yet."` instead of any rows. |
-| Success | `trips.length > 0` | Rows render as above; list container caps at 70vh height with internal scroll (list independently scrollable from the rest of the page). |
+| Success | `trips.length > 0` | Rows render as above; list container caps at 70vh height at md+ (35vh on narrow/portrait screens, where it stacks above rather than beside the map) with internal scroll, independently scrollable from the rest of the page. |
 | Error | Query rejects | Not handled by the page (no explicit error UI) — Apollo's default (silently render with `data` undefined) applies. Flagged as an open gap, not a designed state. |
 
 **Out of scope for this story:** load-more/pagination controls (offset is supported end-to-end by the API but never sent by the client, so trips beyond the 30 most recent are unreachable from the UI).
@@ -45,7 +45,9 @@
 1. **Default selection:** `selectedId` state starts `null`. The page derives the *effectively selected* trip as `trips.find(t => t.id === selectedId) || trips[0]` — so with no explicit click, the first trip in the (already-sorted, most-recent-first) list is selected automatically once data loads.
 2. **User selection:** Clicking a row calls `setSelectedId(trip.id)`, which re-derives the selected trip to that row and marks it visually selected (`selected` prop on the list item).
 3. **Route fetch on selection:** Whenever the selected trip's `id` changes (including the initial auto-selection), a second query, `TRIP_ROUTE_QUERY`, fires for `vehicle(id: vehicleId).trip(id: selected.id).route`. This is a distinct request from the list query — no route data is fetched for unselected trips.
-4. **Map render:** The map is centered on the selected trip's `startLat`/`startLng` at zoom level 15, rendered at `70vh` height (tall enough to fill most of the viewport, not a small fixed box) using a CartoDB basemap — dark-matter tiles in dark mode, light-all tiles in light mode, switching automatically with the app's theme mode (`frontend/src/theme/ModeContext.jsx`) — framed in a hairline-bordered panel.
+4. **Map render:** The map is centered on the selected trip's `startLat`/`startLng` at zoom level 15, rendered at `70vh` height at the `md` breakpoint and up (`45vh` below it — tall enough to fill most of the viewport either way, not a small fixed box) using a CartoDB basemap — dark-matter tiles in dark mode, light-all tiles in light mode, switching automatically with the app's theme mode (`frontend/src/theme/ModeContext.jsx`) — framed in a hairline-bordered panel.
+
+**Layout order (portrait/narrow fix):** the list and map are MUI `Grid` items (`xs={12} md={4}`/`xs={12} md={8}`), so below the `md` breakpoint both go full-width and stack vertically in DOM order. Originally that put the list (up to 70vh tall) above the map, pushing the map — the actual point of this page — well off the initial screen on a phone. Both items now carry an `order` (`sx={{ order: { xs: 2, md: 1 } }}` on the list, `{ xs: 1, md: 2 }` on the map), so the map renders first and is visible without scrolling on narrow/portrait screens, while the side-by-side order at `md`+ (list left, map right) is unchanged.
 5. **Polyline:** If `route.length > 0`, all returned points are connected into a single `Polyline`, styled in the app's "drive" accent color (`theme.tokens.drive` — a lighter sky blue than the primary "charge" accent, mode-dependent), weight 3 — no per-point markers, no start/end pins, no tooltips.
 6. **Remount on trip switch:** The map component is keyed by `selected.id`. Switching the selected trip fully unmounts and remounts the map (rather than updating `center`/`zoom` props in place) — this is required because the underlying map library only applies `center`/`zoom` at mount time, not on prop update.
 
@@ -131,10 +133,10 @@ This is an assumption based on tracing the existing field-level null-handling, n
 1. User lands on `/v/:vehicleId/trips`. `selectedId` state initializes to `null`.
 2. Trip list query is in flight and no cached data yet → page renders a single centered `CircularProgress`, replacing the entire two-panel layout (list and map are not shown, not just the list).
 3. Query resolves with ≥1 trip. Spinner is replaced by the two-panel layout:
-   - **List panel** (left, capped at 70vh, scrollable): all trips, most recent first, each row showing date/time, distance, duration, battery discharge, efficiency.
+   - **List panel** (left at md+, capped at 70vh; on narrow/portrait screens it stacks below the map instead — see the layout-order note in Story 2 — and caps at 35vh): all trips, most recent first, each row showing date/time, distance, duration, battery discharge, efficiency.
    - **Selection:** no row is explicitly marked selected via state yet, but the first trip in the list is used as the effective selection (`selectedId` is still `null`; `selected` falls back to `trips[0]`) — its row renders in the MUI "selected" visual state.
    - This triggers the per-trip route query for that first trip.
-   - **Map panel** (right, 70vh tall) mounts keyed to the first trip's id, centers/zooms on its start coordinates, and shows a marker there via Leaflet's default icon.
+   - **Map panel** (right at md+, 70vh tall; stacks above the list at 45vh on narrow/portrait screens) mounts keyed to the first trip's id, centers/zooms on its start coordinates, and shows a marker there via Leaflet's default icon.
    - Once the route query resolves, a polyline is drawn over the map; there's no separate loading indicator for this — the map is already interactive and simply gains a line when the data arrives.
 4. **Exit:** user picks another section tab, another vehicle, or navigates elsewhere in the app.
 

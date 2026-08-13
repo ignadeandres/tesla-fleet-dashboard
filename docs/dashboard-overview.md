@@ -10,7 +10,7 @@ Source of truth: `frontend/src/pages/OverviewPage.jsx`, `frontend/src/components
 
 - Battery/Range/Odometer cards each independently render `—` when their field is `null`.
 - Locked renders `Yes` only when `locked` is strictly truthy — `false`, `null`, and `undefined` all render `No`. There's no "unknown" state in the UI.
-- Map (single marker, popup text `Last seen {new Date(snap.ts).toLocaleString()}`) renders only when both `lat` and `lng` are non-null on the snapshot.
+- Map (single marker, popup text `Last seen {new Date(snap.ts).toLocaleString()}`) renders only when both `lat` and `lng` are non-null on the snapshot. Height is responsive — `60vh` at the `sm` breakpoint and up, `45vh` below it — so it stays usable on a phone without a fixed pixel height clipping it.
 
 ## `refreshVehicle(id: ID!): TelemetrySnapshot!`
 
