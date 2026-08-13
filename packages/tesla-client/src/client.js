@@ -11,7 +11,14 @@ export function createTeslaClient(db, teslaConfig) {
           Authorization: `Bearer ${accessToken}`,
         },
       });
-      if (!resp.ok) throw new Error(`Tesla API error ${resp.status}: ${path}`);
+      if (!resp.ok) {
+        // Callers (refreshVehicle) need the numeric status to special-case 408 —
+        // Tesla's "vehicle didn't respond in time" signal, not a real HTTP timeout —
+        // without re-parsing it back out of the message string.
+        const err = new Error(`Tesla API error ${resp.status}: ${path}`);
+        err.status = resp.status;
+        throw err;
+      }
       return resp.json();
     },
 

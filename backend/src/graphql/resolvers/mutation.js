@@ -53,6 +53,20 @@ function logout(_, __, ctx) {
   return true;
 }
 
+// Sends wake_up and polls the lightweight status endpoint every 3s (5 attempts, ~15s
+// worst case) until Tesla reports the vehicle "online". Shared by the pre-flight check
+// and the 408 fallback below — both need the exact same wake-and-wait behavior.
+async function wakeAndWaitForOnline(vehicleId, teslaVehicleId) {
+  await tesla.wakeVehicle(vehicleId, teslaVehicleId);
+  let lite;
+  for (let attempt = 0; attempt < 5; attempt++) {
+    await new Promise((resolve) => setTimeout(resolve, 3000));
+    lite = await tesla.getVehicleLite(vehicleId, teslaVehicleId);
+    if (lite.response?.state === "online") return lite;
+  }
+  return lite;
+}
+
 async function refreshVehicle(_, { id }, ctx) {
   if (ctx.isDemo) {
     throw new GraphQLError("Not available in demo mode", { extensions: { code: "FORBIDDEN" } });
@@ -70,11 +84,7 @@ async function refreshVehicle(_, { id }, ctx) {
   // vehicle_data answers 408 for all of them — so anything short of online needs the
   // wake-and-poll loop, not a straight-to-full-poll that fails.
   if (lite.response?.state !== "online") {
-    await tesla.wakeVehicle(vehicle.id, vehicle.teslaVehicleId);
-    for (let attempt = 0; attempt < 5 && lite.response?.state !== "online"; attempt++) {
-      await new Promise((resolve) => setTimeout(resolve, 3000));
-      lite = await tesla.getVehicleLite(vehicle.id, vehicle.teslaVehicleId);
-    }
+    lite = await wakeAndWaitForOnline(vehicle.id, vehicle.teslaVehicleId);
     if (lite.response?.state !== "online") {
       // Name the state — "offline" (no connectivity) and "asleep" (won't wake) are very
       // different problems and the old message couldn't tell them apart.
@@ -84,7 +94,31 @@ async function refreshVehicle(_, { id }, ctx) {
     }
   }
 
-  const full = await tesla.getVehicleState(vehicle.id, vehicle.teslaVehicleId);
+  let full;
+  try {
+    full = await tesla.getVehicleState(vehicle.id, vehicle.teslaVehicleId);
+  } catch (err) {
+    // Tesla's list endpoint (getVehicleLite, just checked above) reports "online" as
+    // soon as the car's networking wakes, which can be seconds before its data
+    // channel actually answers vehicle_data — that gap is exactly what 408 here means
+    // (confirmed against Tesla's Fleet API docs: 408 on vehicle_data = "vehicle
+    // unavailable", not a real HTTP timeout). One more wake_up + wait-for-online closes
+    // that gap in practice; anything else (auth, rate limit, ...) isn't this case and
+    // should surface as-is rather than triggering a pointless wake.
+    if (err.status !== 408) throw err;
+    lite = await wakeAndWaitForOnline(vehicle.id, vehicle.teslaVehicleId);
+    try {
+      full = await tesla.getVehicleState(vehicle.id, vehicle.teslaVehicleId);
+    } catch (retryErr) {
+      if (retryErr.status !== 408) throw retryErr;
+      throw new GraphQLError(
+        "Vehicle reported online but its data channel didn't respond in time, even after a second wake attempt. " +
+          "This usually happens right after the car goes idle. Try again in a minute, or wake it from the Tesla " +
+          "app first (e.g. flash the lights) — that reliably brings the data channel up.",
+        { extensions: { code: "VEHICLE_UNREACHABLE" } }
+      );
+    }
+  }
   const data = full.response;
 
   if (!data.vehicle_state) {

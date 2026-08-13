@@ -26,13 +26,20 @@ Checked in this order in `backend/src/graphql/resolvers/mutation.js`; the first 
 | 2 | `UNAUTHENTICATED` | "Not authenticated" | no session (`requireOwnedVehicle` → `requireUser`) |
 | 3 | `NOT_FOUND` | "Vehicle not found" | vehicle doesn't exist, or exists but isn't owned by the caller — both collapse to the same code so ownership isn't leaked |
 | 4 | `RATE_LIMITED` | "Refresh rate-limited, try again shortly" | last successful call for this vehicle was < 60s ago |
-| 5 | `VEHICLE_UNREACHABLE` | "Vehicle did not wake up in time" | vehicle was asleep and stayed asleep after wake + 5 poll attempts |
+| 5 | `VEHICLE_UNREACHABLE` | "Vehicle is \{state\} and did not wake up in time" | `getVehicleLite` never reported `online`, even after wake + 5 poll attempts |
+| 6 | `VEHICLE_UNREACHABLE` | "Vehicle reported online but its data channel didn't respond in time, even after a second wake attempt. ..." | `getVehicleLite` said `online`, but `getVehicleState` (the actual `vehicle_data` call) got HTTP 408 from Tesla — see below — and a second wake-and-wait + retry also 408'd |
 
-Anything Tesla's API itself rejects with, downstream of the wake loop (step 5), isn't mapped to a code — it propagates as a generic/unhandled error, not one of the above.
+Anything Tesla's API itself rejects with that isn't one of the above (a non-408 error from `getVehicleState`, or a 408 that a retry actually recovers from) isn't mapped to a code — it either propagates as a generic/unhandled error, or the request simply succeeds on retry.
 
-### Timing: wake-and-wait is synchronous, up to ~15s
+### The `online`-but-408 gap (why there's a second wake attempt)
 
-If the lightweight status check (`getVehicleLite`, never wakes the car) reports `asleep`, the resolver sends a wake command and re-checks up to 5 times, 3 seconds apart, before either proceeding to the full poll or throwing `VEHICLE_UNREACHABLE`. The GraphQL request stays open for the whole loop — there is no "202 + poll a status query" protocol on the client. A refresh against a sleeping vehicle can legitimately take close to 15 seconds to resolve. The frontend's only handling of this wait is disabling the button and showing "Refreshing…" for the duration; there's no separate "waking up" message.
+`getVehicleLite` (the `/vehicles/{id}` list endpoint) reports `online` as soon as the car's networking wakes up — which can be seconds before its actual data channel is ready to answer `vehicle_data`. In that gap, `tesla.getVehicleState` gets back **HTTP 408** from Tesla, which per Tesla's Fleet API docs means "vehicle unavailable," not a real request timeout. This is exactly the case a user hits pressing "Refresh Now" on an idle-but-recently-active vehicle.
+
+`packages/tesla-client/src/client.js`'s `call()` attaches the numeric status to the thrown `Error` (`err.status`) so the resolver can special-case this. `refreshVehicle` catches a 408 from `getVehicleState` specifically (any other status propagates immediately, unhandled — a 401/rate-limit/etc. isn't this case and shouldn't trigger a pointless wake), sends one more `wakeVehicle` + the same 5×3s poll-for-`online` loop (factored out as `wakeAndWaitForOnline`, shared with the pre-flight check above), then retries `getVehicleState` exactly once. A second 408 throws error code 6 above with the full explanation, matching what pressing the equivalent button in Tesla's own app does — that app's wake action (e.g. flashing the lights) reliably brings the data channel up because it's a stronger nudge than this endpoint's `wake_up` call, which is why the error message suggests it as a fallback.
+
+### Timing: wake-and-wait is synchronous, up to ~15s (~45s worst case on a 408)
+
+If the lightweight status check (`getVehicleLite`, never wakes the car) reports anything other than `online`, the resolver sends a wake command and re-checks up to 5 times, 3 seconds apart, before either proceeding to the full poll or throwing `VEHICLE_UNREACHABLE` (error 5). The GraphQL request stays open for the whole loop — there is no "202 + poll a status query" protocol on the client. If `getVehicleLite` already said `online` but `getVehicleState` then 408s, the same ~15s wake-and-wait runs a second time before one retry, so the worst case (initial wake-and-wait + 408 + second wake-and-wait) is close to 45 seconds, not 15. The frontend's only handling of this wait is disabling the button and showing "Refreshing…" for the duration; there's no separate "waking up" message, and no visual difference between the ~15s and ~45s cases.
 
 ### Rate limit: 60s per vehicle, in-memory
 
