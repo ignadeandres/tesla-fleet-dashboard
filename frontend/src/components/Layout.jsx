@@ -2,6 +2,7 @@ import { Outlet, useParams, Link as RouterLink, useLocation } from "react-router
 import { AppBar, Toolbar, Typography, Tabs, Tab, Box, Button, Chip } from "@mui/material";
 import { useAuth } from "../auth/AuthContext.jsx";
 import { VehicleSelector } from "./VehicleSelector.jsx";
+import { ModeToggle } from "./ModeToggle.jsx";
 import { sectionFromPath } from "../utils/section.js";
 
 const SECTIONS = [
@@ -37,6 +38,7 @@ export function Layout() {
           <Button size="small" onClick={() => auth.logout()}>
             Log out
           </Button>
+          <ModeToggle />
         </Toolbar>
         {vehicleId && (
           <Tabs value={section} variant="scrollable" scrollButtons="auto" allowScrollButtonsMobile sx={{ px: 2 }}>

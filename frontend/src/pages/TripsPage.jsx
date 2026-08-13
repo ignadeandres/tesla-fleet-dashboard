@@ -2,11 +2,11 @@ import { useParams } from "react-router-dom";
 import { useState } from "react";
 import { useQuery } from "@apollo/client";
 import { Polyline } from "react-leaflet";
-import { Box, Grid, List, ListItemButton, Typography } from "@mui/material";
+import { Box, Grid, List, ListItemButton, Typography, useTheme } from "@mui/material";
 import { VEHICLE_TRIPS_QUERY, TRIP_ROUTE_QUERY } from "../graphql/queries/trips.js";
 import { Map } from "../components/Map.jsx";
 import { Loader } from "../components/Loader.jsx";
-import { monoFont, tokens } from "../theme/index.js";
+import { monoFont } from "../theme/index.js";
 
 function formatDuration(seconds) {
   if (!seconds) return "—";
@@ -21,6 +21,7 @@ function formatDischarge(startLevel, endLevel) {
 
 export function TripsPage() {
   const { vehicleId } = useParams();
+  const { tokens } = useTheme();
   const { data, loading } = useQuery(VEHICLE_TRIPS_QUERY, {
     variables: { id: vehicleId, limit: 30 },
     fetchPolicy: "cache-and-network",
@@ -41,7 +42,7 @@ export function TripsPage() {
   return (
     <Grid container spacing={2}>
       <Grid item xs={12} md={4}>
-        <List sx={{ maxHeight: 500, overflow: "auto" }}>
+        <List sx={{ maxHeight: "70vh", overflow: "auto" }}>
           {trips.map((t) => (
             <ListItemButton
               key={t.id}
@@ -84,7 +85,7 @@ export function TripsPage() {
           // MapContainer only applies `center`/`zoom` on mount, so without this the
           // camera would stay put when switching between trips in different places.
           <Box sx={{ border: 1, borderColor: "divider", borderRadius: 1, overflow: "hidden" }}>
-            <Map key={selected.id} center={[selected.startLat, selected.startLng]} height={500}>
+            <Map key={selected.id} center={[selected.startLat, selected.startLng]} height="70vh">
               {route.length > 0 && (
                 <Polyline positions={route.map((p) => [p.lat, p.lng])} pathOptions={{ color: tokens.drive, weight: 3 }} />
               )}

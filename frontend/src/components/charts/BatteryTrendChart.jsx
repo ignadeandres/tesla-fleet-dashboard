@@ -1,7 +1,9 @@
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
-import { tokens, monoFont } from "../../theme/index.js";
+import { useTheme } from "@mui/material";
+import { monoFont } from "../../theme/index.js";
 
 export function BatteryTrendChart({ data }) {
+  const { tokens } = useTheme();
   const points = data.map((d) => ({ ...d, tsLabel: new Date(d.ts).toLocaleDateString() }));
   const tick = { fill: tokens.textMuted, fontFamily: monoFont, fontSize: 11 };
 

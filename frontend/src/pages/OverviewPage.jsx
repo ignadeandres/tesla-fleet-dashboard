@@ -1,15 +1,13 @@
 import { useParams } from "react-router-dom";
 import { useQuery, useMutation } from "@apollo/client";
 import { Marker, Popup } from "react-leaflet";
-import { Grid, Typography, Button, Box, Chip, Alert } from "@mui/material";
+import { Grid, Typography, Button, Box, Chip, Alert, useTheme } from "@mui/material";
 import { VEHICLE_OVERVIEW_QUERY, REFRESH_VEHICLE_MUTATION } from "../graphql/queries/vehicle.js";
 import { useAuth } from "../auth/AuthContext.jsx";
 import { Map } from "../components/Map.jsx";
 import { ChargeRail } from "../components/ChargeRail.jsx";
 import { Loader } from "../components/Loader.jsx";
-import { monoFont, tokens } from "../theme/index.js";
-
-const STATE_COLOR = { online: tokens.charge, charging: tokens.charge, driving: tokens.drive };
+import { monoFont } from "../theme/index.js";
 
 // Readout tile: mono numeral (instrument-style) + label, hairline-divided instead
 // of a card shadow. `rail` renders the ChargeRail gauge under the battery reading.
@@ -35,6 +33,8 @@ function Stat({ label, value, caption, rail }) {
 export function OverviewPage() {
   const { vehicleId } = useParams();
   const auth = useAuth();
+  const { tokens } = useTheme();
+  const STATE_COLOR = { online: tokens.charge, charging: tokens.charge, driving: tokens.drive };
   const { data, loading, refetch } = useQuery(VEHICLE_OVERVIEW_QUERY, {
     variables: { id: vehicleId },
     fetchPolicy: "cache-and-network",

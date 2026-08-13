@@ -1,9 +1,9 @@
 import { useParams } from "react-router-dom";
 import { useQuery } from "@apollo/client";
-import { Box, Typography } from "@mui/material";
+import { Box, Typography, useTheme } from "@mui/material";
 import { VEHICLE_STATE_LOG_QUERY } from "../graphql/queries/stateLog.js";
 import { Loader } from "../components/Loader.jsx";
-import { monoFont, tokens } from "../theme/index.js";
+import { monoFont } from "../theme/index.js";
 
 // Minimal hand-drawn icons — no icon package is installed and one glyph each
 // doesn't warrant adding @mui/icons-material for it.
@@ -40,6 +40,7 @@ function groupByDay(log) {
 
 export function StateLogPage() {
   const { vehicleId } = useParams();
+  const { tokens } = useTheme();
   const { data, loading } = useQuery(VEHICLE_STATE_LOG_QUERY, {
     variables: { id: vehicleId },
     fetchPolicy: "cache-and-network",

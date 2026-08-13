@@ -1,5 +1,4 @@
-import { Box, keyframes } from "@mui/material";
-import { tokens } from "../theme/index.js";
+import { Box, keyframes, useTheme } from "@mui/material";
 
 const sweep = keyframes`
   0% { transform: translateX(-100%); }
@@ -9,6 +8,7 @@ const sweep = keyframes`
 // App-wide loading indicator: a charge-rail track with a moving fill, standing in
 // for MUI's default CircularProgress everywhere the app shows a "loading" state.
 export function Loader() {
+  const { tokens } = useTheme();
   return (
     <Box
       sx={{

@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useNavigate, Link as RouterLink } from "react-router-dom";
 import { Box, Paper, TextField, Button, Typography, Alert, Link } from "@mui/material";
 import { useAuth } from "./AuthContext.jsx";
+import { ModeToggle } from "../components/ModeToggle.jsx";
 
 export function LoginPage({ register = false }) {
   const auth = useAuth();
@@ -22,7 +23,10 @@ export function LoginPage({ register = false }) {
   }
 
   return (
-    <Box display="flex" justifyContent="center" mt={10}>
+    <Box display="flex" justifyContent="center" mt={10} position="relative">
+      <Box position="absolute" top={16} right={16}>
+        <ModeToggle />
+      </Box>
       <Paper sx={{ p: 4, width: 360 }} component="form" onSubmit={handleSubmit}>
         <Typography variant="h5" mb={0.5} sx={{ fontWeight: 700, letterSpacing: "-0.02em" }}>
           {register ? "Create account" : "Log in"}
