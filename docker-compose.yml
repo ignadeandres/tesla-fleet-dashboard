@@ -59,6 +59,7 @@ services:
       TESLA_AUTH_BASE: https://fleet-auth.prd.vn.cloud.tesla.com
       TESLA_MAX_CALLS_PER_DAY: ${TESLA_MAX_CALLS_PER_DAY:-300}
       BATTERY_CAPACITY_KWH: ${BATTERY_CAPACITY_KWH:-56}
+      TESLA_FAST_FOLLOW_ENABLED: ${TESLA_FAST_FOLLOW_ENABLED:-true}
       NODE_ENV: production
 
   frontend:

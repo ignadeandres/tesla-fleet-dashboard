@@ -92,3 +92,16 @@ test("getPollInterval doesn't touch the fixed driving/charging/asleep intervals"
   assert.equal(await getPollInterval(dbUnused, "veh-1", "charging"), 5 * 60 * 1000);
   assert.equal(await getPollInterval(dbUnused, "veh-1", "asleep"), 10 * 60 * 1000);
 });
+
+test("TESLA_FAST_FOLLOW_ENABLED=false restores the flat 15-minute interval regardless of recent activity", async () => {
+  process.env.TESLA_FAST_FOLLOW_ENABLED = "false";
+  // FAST_FOLLOW_ENABLED is read once at module load — a fresh query-string identity
+  // forces Node to re-evaluate the module under the env var set just above.
+  const { getPollInterval: getPollIntervalDisabled } = await import(`./stateMachine.js?disabled=${Date.now()}`);
+  delete process.env.TESLA_FAST_FOLLOW_ENABLED;
+
+  const oneMinuteAgo = new Date(Date.now() - 60 * 1000).toISOString();
+  const dbRecentlyActive = { query: async () => ({ rows: [{ ts: oneMinuteAgo }] }) };
+  const interval = await getPollIntervalDisabled(dbRecentlyActive, "veh-1", "online");
+  assert.equal(interval, 15 * 60 * 1000, "fast-follow disabled — should ignore recent activity and use the idle interval");
+});

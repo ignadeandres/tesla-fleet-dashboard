@@ -32,11 +32,18 @@ const INTERVALS_MS = {
 // while and a new trip starting imminently is much less likely.
 const RECENT_ACTIVITY_WINDOW_MS = 10 * 60 * 1000;
 const FAST_FOLLOW_INTERVAL_MS = 90 * 1000;
+// Roughly +13 billed calls per trip (lite+full every 90s for 10 minutes, instead of
+// the ~0 extra calls the old flat 15-minute idle interval would have made in that
+// same window) — a real increase in Fleet API usage, not free. Default on since it's
+// what actually catches short trips, but a one-var kill switch back to the old
+// flat-15-minute behavior for anyone watching their free-tier quota.
+const FAST_FOLLOW_ENABLED = process.env.TESLA_FAST_FOLLOW_ENABLED !== "false";
 
 export async function getPollInterval(db, vehicleId, knownState) {
   if (knownState === "driving") return INTERVALS_MS.driving;
   if (knownState === "charging") return INTERVALS_MS.charging;
   if (knownState === "asleep") return INTERVALS_MS.asleep;
+  if (!FAST_FOLLOW_ENABLED) return INTERVALS_MS.idle;
 
   const { rows } = await db.query(
     `SELECT ts FROM telemetry_snapshots WHERE vehicle_id = $1 AND state IN ('driving', 'charging')
