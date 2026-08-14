@@ -19,17 +19,25 @@ The 60s loop is only the *check* frequency. Whether a given vehicle is actually 
 
 ## Adaptive polling cadence
 
-`runStateMachine` looks up the vehicle's most recent `telemetry_snapshots.state` and maps it to a required interval before doing anything else:
+`runStateMachine` looks up the vehicle's most recent `telemetry_snapshots.state` and passes it to `getPollInterval(db, vehicleId, knownState)` to get a required interval before doing anything else:
 
 | Last known state | Poll interval | Constant |
 |---|---|---|
 | `driving` | 60 seconds | `INTERVALS_MS.driving` |
 | `charging` | 5 minutes | `INTERVALS_MS.charging` |
 | `asleep` | 10 minutes | `INTERVALS_MS.asleep` |
-| `idle` | 15 minutes | `INTERVALS_MS.idle` |
-| no snapshot yet, or any other state (`online`) | 15 minutes | falls back to `INTERVALS_MS.idle` |
+| `online`/no snapshot yet, **within 10 minutes of the vehicle's last `driving`/`charging` snapshot** | 90 seconds | `FAST_FOLLOW_INTERVAL_MS` |
+| `online`/no snapshot yet, otherwise | 15 minutes | falls back to `INTERVALS_MS.idle` |
 
 These are fixed constants in `stateMachine.js` — not per-vehicle or per-user configurable, and not read from an env var.
+
+### Fast-follow interval (short trips)
+
+The plain 15-minute idle interval let short trips slip through the cracks two ways: a trip entirely shorter than 15 minutes could start and end between two ticks without ever being observed as `driving`, and a longer trip could be caught only once well underway — with `trips.start_time`/`start_lat`/`start_lng` set to wherever the vehicle was at the *first detected* point, not where it actually left from (see `handleTripPoint` in `packages/tesla-client/src/trip.js` — it has no way to backfill a departure point it never observed).
+
+`getPollInterval` shrinks that detection lag for the highest-risk window: whenever the vehicle's most recent `driving`/`charging` snapshot is less than `RECENT_ACTIVITY_WINDOW_MS` (10 minutes) old, it polls at `FAST_FOLLOW_INTERVAL_MS` (90 seconds) instead of the full 15-minute idle interval — covering exactly the "quick stop, then driving again" pattern (errands, drop-off-then-immediately-leaving, etc.). Once the vehicle has been parked longer than that window without driving/charging again, it falls back to the normal 15-minute cadence — a car parked for hours is much less likely to depart in the next instant, and by then it's usually gone properly `asleep` anyway (10-minute cadence, cheap lite-check-only, see below).
+
+This doesn't fully eliminate the gap — the very first trip after a long parked/asleep stretch (not preceded by recent activity) still starts with up to a 15-minute (`online`) or 10-minute (`asleep`) detection lag, and even within the fast-follow window there's still up to ~90 seconds of undetected driving at the start of a trip, during which `trip_points`/distance aren't captured and the recorded `start_lat`/`start_lng` will be slightly past the true departure point. Backfilling the true start location from the last known parked snapshot (a car doesn't move while parked, so that position is known-good even during the undetected gap) would close that residual gap further but isn't implemented — flagged as a follow-up, not attempted here to avoid fabricating trip distance across a gap of unknown-in-between activity.
 
 Elapsed time is tracked in an in-memory `Map<vehicleId, lastPollAt>`, compared against `Date.now()` on every tick:
 

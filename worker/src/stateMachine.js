@@ -22,6 +22,32 @@ const INTERVALS_MS = {
   charging: 5 * 60 * 1000,
 };
 
+// The plain 15-minute idle/online interval above was letting genuinely short trips
+// (a quick errand, a few minutes each way) slip through entirely, or be caught only
+// once already well underway — nothing detects "driving" until the next tick that
+// happens to land during the trip. A follow-up trip is disproportionately likely in
+// the few minutes right after the vehicle was last seen driving/charging (the next
+// stop on the errand run, heading home, etc.), so poll fast for a while in exactly
+// that window, then back off to the normal idle cadence once it's been parked a
+// while and a new trip starting imminently is much less likely.
+const RECENT_ACTIVITY_WINDOW_MS = 10 * 60 * 1000;
+const FAST_FOLLOW_INTERVAL_MS = 90 * 1000;
+
+export async function getPollInterval(db, vehicleId, knownState) {
+  if (knownState === "driving") return INTERVALS_MS.driving;
+  if (knownState === "charging") return INTERVALS_MS.charging;
+  if (knownState === "asleep") return INTERVALS_MS.asleep;
+
+  const { rows } = await db.query(
+    `SELECT ts FROM telemetry_snapshots WHERE vehicle_id = $1 AND state IN ('driving', 'charging')
+     ORDER BY ts DESC LIMIT 1`,
+    [vehicleId]
+  );
+  const lastActiveAt = rows[0]?.ts ? new Date(rows[0].ts).getTime() : 0;
+  if (Date.now() - lastActiveAt < RECENT_ACTIVITY_WINDOW_MS) return FAST_FOLLOW_INTERVAL_MS;
+  return INTERVALS_MS.idle;
+}
+
 export async function runStateMachine(db, tesla, vehicle) {
   const now = Date.now();
 
@@ -32,7 +58,7 @@ export async function runStateMachine(db, tesla, vehicle) {
   const knownState = rows[0]?.state || "idle";
 
   const last = lastPollAt.get(vehicle.id) || 0;
-  const interval = INTERVALS_MS[knownState] || INTERVALS_MS.idle;
+  const interval = await getPollInterval(db, vehicle.id, knownState);
   if (now - last < interval) return; // not due yet
   lastPollAt.set(vehicle.id, now);
 

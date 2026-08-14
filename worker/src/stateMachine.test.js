@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { runStateMachine } from "./stateMachine.js";
+import { runStateMachine, getPollInterval } from "./stateMachine.js";
 
 function makeFakeDb(knownState) {
   const calls = [];
@@ -69,4 +69,26 @@ test("an idle-awake vehicle throttles repeated polls (lite and full) to the idle
   await runStateMachine(db, tesla, vehicle);
   assert.equal(liteCalls, 1, "the second tick is within the idle interval — no API call at all, not even the lite one");
   assert.equal(fullPollCalls, 1, "the expensive full poll should be throttled on the second tick");
+});
+
+test("getPollInterval polls fast right after the vehicle was last driving/charging, to catch a short follow-up trip", async () => {
+  const oneMinuteAgo = new Date(Date.now() - 60 * 1000).toISOString();
+  const dbRecentlyActive = { query: async () => ({ rows: [{ ts: oneMinuteAgo }] }) };
+  const interval = await getPollInterval(dbRecentlyActive, "veh-1", "online");
+  assert.equal(interval, 90 * 1000, "should use the short fast-follow interval, not the 15-minute idle one");
+});
+
+test("getPollInterval backs off to the normal idle interval once the vehicle has been parked a while", async () => {
+  const overAnHourAgo = new Date(Date.now() - 90 * 60 * 1000).toISOString();
+  const dbLongParked = { query: async () => ({ rows: [{ ts: overAnHourAgo }] }) };
+  const dbNeverActive = { query: async () => ({ rows: [] }) };
+  assert.equal(await getPollInterval(dbLongParked, "veh-1", "online"), 15 * 60 * 1000);
+  assert.equal(await getPollInterval(dbNeverActive, "veh-1", "online"), 15 * 60 * 1000);
+});
+
+test("getPollInterval doesn't touch the fixed driving/charging/asleep intervals", async () => {
+  const dbUnused = { query: async () => assert.fail("should not query for a known driving/charging/asleep state") };
+  assert.equal(await getPollInterval(dbUnused, "veh-1", "driving"), 60 * 1000);
+  assert.equal(await getPollInterval(dbUnused, "veh-1", "charging"), 5 * 60 * 1000);
+  assert.equal(await getPollInterval(dbUnused, "veh-1", "asleep"), 10 * 60 * 1000);
 });
